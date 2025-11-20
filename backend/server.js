@@ -20,8 +20,6 @@ import deptRoutes from "./routes/departments.js";
 import googleAuthRoutes from "./routes/googleAuth.js";
 import doctorRoutes from "./routes/doctor.js";
 import appointmentsRoutes from "./routes/appointments.js";
-
-// ✅ THE CORRECT patient routes file
 import patientsRoutes from "./routes/patients.js";
 
 const app = express();
@@ -35,32 +33,30 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 // -------------------------------------------------
-// CORS (CRITICAL — must allow cookies)
+// CORS — DEV FRIENDLY (ALL LOCALHOST PORTS)
+// Required because cookies must be allowed
 // -------------------------------------------------
-const allowedOrigin =
-  process.env.FRONTEND_ORIGIN || "http://localhost:5173";
-
 app.use(
   cors({
-    origin: allowedOrigin,
-    credentials: true, // required for cookies (refreshToken)
+    origin: true,            // allow all localhost origins automatically
+    credentials: true,       // REQUIRED for cookies
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 
 // -------------------------------------------------
-// RATE LIMITING
+// RATE LIMITING (OPTIONAL IN DEV)
 // -------------------------------------------------
-app.use(
-  rateLimit({
-    windowMs: 60 * 1000,
-    max: 100,
-  })
-);
+// app.use(
+//   rateLimit({
+//     windowMs: 60 * 1000,
+//     max: 100,
+//   })
+// );
 
 // -------------------------------------------------
-// PASSPORT (WITHOUT sessions)
+// PASSPORT INITIALIZATION
 // -------------------------------------------------
 app.use(passport.initialize());
 
@@ -76,7 +72,7 @@ app.use("/auth", authRoutes);
 app.use("/auth", googleAuthRoutes); // Google OAuth
 app.use("/users", userRoutes);
 app.use("/departments", deptRoutes);
-app.use("/patients", patientsRoutes); // ✅ Only this one
+app.use("/patients", patientsRoutes);
 app.use("/doctor", doctorRoutes);
 app.use("/appointments", appointmentsRoutes);
 
@@ -89,7 +85,7 @@ app.get("/health", (req, res) => res.json({ ok: true }));
 // GLOBAL ERROR HANDLER
 // -------------------------------------------------
 app.use((err, req, res, next) => {
-  console.error("SERVER ERROR:", err);
+  console.error("SERVER ERROR:", err.message || err);
   res.status(500).json({ error: "Server error" });
 });
 

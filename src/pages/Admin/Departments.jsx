@@ -84,26 +84,34 @@ export default function Departments() {
       </div>
 
       {/* Form */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-6 shadow-card mb-6">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200
+                      dark:border-slate-700 rounded-xl p-6 shadow-card mb-6">
         <form onSubmit={handleCreate} className="grid gap-4 md:grid-cols-3">
+
+          {/* Department Name */}
           <input
-            className="p-3 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800"
+            className="p-3 border border-slate-300 dark:border-slate-700 rounded-lg 
+                       bg-white dark:bg-slate-800"
             placeholder="Department name *"
             value={name}
             onChange={(e) => setName(e.target.value)}
           />
 
+          {/* Description */}
           <input
-            className="p-3 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800"
+            className="p-3 border border-slate-300 dark:border-slate-700 rounded-lg 
+                       bg-white dark:bg-slate-800"
             placeholder="Short description (optional)"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
           />
 
+          {/* Buttons */}
           <div className="flex items-center gap-2">
             <button
               type="submit"
-              className="px-4 py-3 bg-brand text-white rounded-lg shadow-sm hover:bg-brand-dark transition"
+              className="px-6 py-3 bg-blue-600 text-white font-medium rounded-lg 
+                         shadow hover:bg-blue-700 transition"
             >
               {editing ? "Update" : "Create"}
             </button>
@@ -116,7 +124,9 @@ export default function Departments() {
                   setName("");
                   setDescription("");
                 }}
-                className="px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                className="px-6 py-3 border border-slate-300 dark:border-slate-600 
+                           text-slate-700 dark:text-slate-200 rounded-lg
+                           hover:bg-slate-100 dark:hover:bg-slate-800 transition"
               >
                 Cancel
               </button>
@@ -135,12 +145,12 @@ export default function Departments() {
           {depts.map((d) => (
             <div
               key={d._id}
-              className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 
-                         rounded-xl p-5 shadow-sm flex items-center justify-between hover:shadow-md 
-                         transition"
+              className="bg-white dark:bg-slate-900 border border-slate-200 
+                         dark:border-slate-700 rounded-xl p-5 shadow-sm
+                         flex items-center justify-between hover:shadow-md transition"
             >
               <div className="flex items-start gap-3">
-                <Building2 className="text-brand mt-1" />
+                <Building2 className="text-blue-600 mt-1" />
                 <div>
                   <div className="font-semibold text-slate-800 dark:text-white">
                     {d.name}

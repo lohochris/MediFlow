@@ -5,25 +5,25 @@ import { useAuth } from "../context/AuthContext";
 import { getCurrentUser } from "../services/authService";
 
 export default function RequireAuth({ children }) {
-  const { user, loading, setUser, getCurrentUser: fetchUser } = useAuth();
+  const { user, loading, setUser, reloadUser } = useAuth();
   const location = useLocation();
 
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
     async function check() {
-      // STEP 1 — If user already exists in context → allow
+      // STEP 1 — user already exists
       if (user) {
         setChecking(false);
         return;
       }
 
-      // STEP 2 — If a user exists in localStorage → fetch full profile
+      // STEP 2 — Local storage user
       const stored = getCurrentUser();
       if (stored?.accessToken) {
-        const profile = await fetchUser(); // GET /users/me
-        if (profile) {
-          setUser({ ...profile, accessToken: stored.accessToken });
+        const fresh = await reloadUser();
+
+        if (fresh) {
           setChecking(false);
           return;
         }
@@ -34,7 +34,7 @@ export default function RequireAuth({ children }) {
     }
 
     check();
-  }, [user, fetchUser, setUser]);
+  }, [user, reloadUser, setUser]);
 
   if (loading || checking) {
     return (

@@ -1,5 +1,5 @@
 // src/layout/Layout.jsx
-import { useState } from "react";
+import React, { useState } from "react";   // ✅ FIXED: React added
 import Sidebar from "../components/sidebar/Sidebar";
 import Header from "../components/header/Header";
 import AddPatientModal from "../components/patients/AddPatientModal";

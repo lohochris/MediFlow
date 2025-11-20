@@ -6,11 +6,9 @@ import { signAccessToken, signRefreshToken, hashToken } from "../utils/tokens.js
 
 const router = express.Router();
 
-// ---------------------------------------------
-// REGISTER
-// ---------------------------------------------
-// REGISTER + AUTO LOGIN
-// ---------------------------------------------
+// -----------------------------------------------------------------------------
+// REGISTER  (Auto-login)
+// -----------------------------------------------------------------------------
 router.post("/register", async (req, res) => {
   const { name, email, password, role, department } = req.body;
 
@@ -31,11 +29,9 @@ router.post("/register", async (req, res) => {
     department: department || "None",
   });
 
-  // Auto-login: generate tokens
+  // Create tokens
   const accessToken = signAccessToken({ sub: user._id, role: user.role });
-  const { token: refreshToken, tokenId } = signRefreshToken({
-    sub: user._id,
-  });
+  const { token: refreshToken, tokenId } = signRefreshToken({ sub: user._id });
 
   const refreshHash = await hashToken(refreshToken);
   const expiresAt = new Date();
@@ -51,22 +47,23 @@ router.post("/register", async (req, res) => {
 
   await user.save();
 
-  // Send refresh in cookie
+  // Set refresh token cookie (IMPORTANT FIX)
   res.cookie("refreshToken", refreshToken, {
     httpOnly: true,
-    secure: false,
+    secure: false,     // localhost only
     sameSite: "Lax",
+    path: "/",         // REQUIRED for browser to store cookie
   });
 
-  res.status(201).json({
+  return res.status(201).json({
     accessToken,
     user: user.toJSON(),
   });
 });
 
-// ---------------------------------------------
-// LOGIN (email+password)
-// ---------------------------------------------
+// -----------------------------------------------------------------------------
+// LOGIN
+// -----------------------------------------------------------------------------
 router.post("/login", async (req, res) => {
   const { email, password, device } = req.body;
 
@@ -79,7 +76,7 @@ router.post("/login", async (req, res) => {
   const ok = await user.verifyPassword(password);
   if (!ok) return res.status(401).json({ error: "Invalid credentials" });
 
-  // Generate tokens
+  // Create tokens
   const accessToken = signAccessToken({ sub: user._id, role: user.role });
   const { token: refreshToken, tokenId } = signRefreshToken({ sub: user._id });
 
@@ -97,23 +94,23 @@ router.post("/login", async (req, res) => {
 
   await user.save();
 
-  // refresh token → cookie
+  // Set refresh token cookie (IMPORTANT FIX)
   res.cookie("refreshToken", refreshToken, {
     httpOnly: true,
     secure: false,
     sameSite: "Lax",
+    path: "/",   // FIXED
   });
 
-  // access token → frontend will store in localStorage
-  res.json({
+  return res.json({
     accessToken,
     user: user.toJSON(),
   });
 });
 
-// ---------------------------------------------
-// REFRESH TOKEN (silent login)
-// ---------------------------------------------
+// -----------------------------------------------------------------------------
+// REFRESH TOKEN (Silent authentication)
+// -----------------------------------------------------------------------------
 router.post("/refresh", async (req, res) => {
   const rt = req.cookies?.refreshToken;
   if (!rt) return res.status(401).json({ error: "No refresh token" });
@@ -132,7 +129,7 @@ router.post("/refresh", async (req, res) => {
     const valid = await bcrypt.compare(rt, entry.tokenHash);
     if (!valid) return res.status(401).json({ error: "Refresh token mismatch" });
 
-    // TOKEN ROTATION
+    // ROTATE TOKEN (security best practice)
     user.refreshTokens.splice(idx, 1);
 
     const { token: newRefreshToken, tokenId: newTokenId } = signRefreshToken({
@@ -154,10 +151,12 @@ router.post("/refresh", async (req, res) => {
 
     await user.save();
 
+    // Set NEW refresh cookie (IMPORTANT FIX)
     res.cookie("refreshToken", newRefreshToken, {
       httpOnly: true,
       secure: false,
       sameSite: "Lax",
+      path: "/",   // FIXED
     });
 
     const accessToken = signAccessToken({
@@ -165,8 +164,7 @@ router.post("/refresh", async (req, res) => {
       role: user.role,
     });
 
-    // 🔥 MUST SEND USER ALSO
-    res.json({
+    return res.json({
       accessToken,
       user: user.toJSON(),
     });
@@ -175,7 +173,9 @@ router.post("/refresh", async (req, res) => {
   }
 });
 
-// ---------------------------------------------
+// -----------------------------------------------------------------------------
+// LOGOUT
+// -----------------------------------------------------------------------------
 router.post("/logout", async (req, res) => {
   const rt = req.cookies?.refreshToken;
 
@@ -189,13 +189,13 @@ router.post("/logout", async (req, res) => {
         );
         await user.save();
       }
-    } catch (e) {}
+    } catch (_) {}
   }
 
-  res.clearCookie("refreshToken");
-  res.clearCookie("accessToken");
+  res.clearCookie("refreshToken", { path: "/" });
+  res.clearCookie("accessToken", { path: "/" });
 
-  res.json({ message: "Logged out" });
+  return res.json({ message: "Logged out" });
 });
 
 export default router;

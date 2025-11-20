@@ -1,5 +1,4 @@
-// src/context/AuthContext.js
-import { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useState } from "react";
 import {
   getCurrentUser as getStoredUser,
   saveUser,
@@ -58,8 +57,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   // ==========================================================
-  // LOGIN (from Login.jsx or Register.jsx)
-  // login(userObj) must receive full object: { user, accessToken }
+  // LOGIN
   // ==========================================================
   const login = (userObj) => {
     saveUser(userObj);
@@ -71,7 +69,7 @@ export function AuthProvider({ children }) {
   // ==========================================================
   const logout = async () => {
     try {
-      await api.post("/auth/logout");
+      await api.post("/auth/logout", {}, { withCredentials: true });
     } catch {}
     clearUser();
     setUser(null);
