@@ -1,0 +1,120 @@
+{
+  "users": [
+    {
+      "id": "1",
+      "email": "admin@mediflow.com",
+      "password": "admin123",
+      "name": "Admin User"
+    },
+    {
+      "id": "08d5",
+      "name": "Loho Chris",
+      "email": "lohoinfortech@gmail.com",
+      "password": "KAKAKA23"
+    },
+    {
+      "id": "b8a7",
+      "name": "Christopher Loho Dondo",
+      "email": "lohochris@gmail.com",
+      "password": "Todayisagoodday@23"
+    },
+    {
+      "id": "6ffb",
+      "name": "Kennet Okonko",
+      "email": "kris22@gmail.com",
+      "password": "MAMA45@3"
+    },
+    {
+      "id": "6884",
+      "name": "Godwin Loho",
+      "email": "godwinloho@gmail.com",
+      "password": "Godwin23@23"
+    }
+  ],
+  "patients": [
+    {
+      "id": "1",
+      "name": "John Doe",
+      "age": 34,
+      "gender": "Male",
+      "phone": "+2348012345678"
+    },
+    {
+      "id": "2",
+      "name": "Jane Roe",
+      "age": 29,
+      "gender": "Female",
+      "phone": "+2347071112222"
+    },
+    {
+      "id": "9726",
+      "name": "Loho Veronica",
+      "age": "56",
+      "gender": "Female",
+      "phone": "08108586277",
+      "email": "jannetfrancis87@gmail.com"
+    },
+    {
+      "id": "e5be",
+      "name": "John Loho",
+      "age": "45",
+      "gender": "Male",
+      "phone": "08123998760",
+      "email": "johnloho@gmail.com"
+    },
+    {
+      "id": "c495",
+      "name": "Veronica Loho Dondo JJJ",
+      "phone": "08108586277",
+      "email": "jannetfrancis87@gmail.com",
+      "age": "34",
+      "gender": "Female"
+    },
+    {
+      "id": "9efe",
+      "name": "Godwin Loho",
+      "phone": "08123456776",
+      "email": "godwinloho@gmail.com",
+      "age": "20",
+      "gender": "Male"
+    },
+    {
+      "id": "082d",
+      "name": "Lizy Oma",
+      "phone": "0813456782",
+      "email": "lizyoma@gmail.com",
+      "age": "23",
+      "gender": "Female"
+    }
+  ],
+  "appointments": [
+    {
+      "id": "1",
+      "patient": "John Doe",
+      "date": "2025-02-14",
+      "time": "09:00",
+      "type": "Dental Checkup"
+    },
+    {
+      "id": "bccb",
+      "patient": "Momo Do",
+      "date": "2025-11-22",
+      "time": "10:30",
+      "type": "Follow Up"
+    },
+    {
+      "id": "f240",
+      "patientId": "c495",
+      "type": "Checkup",
+      "date": "2025-11-16",
+      "time": "15:00"
+    },
+    {
+      "id": "f500",
+      "patientId": "082d",
+      "type": "Consultation",
+      "date": "2025-11-29",
+      "time": "20:30"
+    }
+  ]
+}

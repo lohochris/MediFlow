@@ -1,0 +1,16 @@
+/* Tailwind base imports (will work after Tailwind is installed) */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Default fallback styles if Tailwind is not yet installed */
+body {
+  margin: 0;
+  padding: 0;
+  font-family: Arial, sans-serif;
+  background: #f1f5f9; /* slate-100 */
+}
+
+* {
+  box-sizing: border-box;
+}
