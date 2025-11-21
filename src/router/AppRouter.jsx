@@ -32,6 +32,9 @@ import AdminDashboard from "../pages/Admin/AdminDashboard";
 import Departments from "../pages/Admin/Departments";
 import UserManagement from "../pages/Admin/UserManagement";
 
+// SUPERADMIN
+import SuperAdminDashboard from "../pages/Admin/SuperAdminDashboard";
+
 // DOCTOR PAGES
 import DoctorDashboard from "../pages/Doctor/DoctorDashboard";
 import PatientList from "../pages/Doctor/PatientList";
@@ -42,6 +45,7 @@ export default function AppRouter() {
     <BrowserRouter>
       <AuthProvider>
         <ThemeProvider>
+
           <Routes>
 
             {/* ===================================== */}
@@ -51,10 +55,10 @@ export default function AppRouter() {
             <Route path="/register" element={<Register />} />
             <Route path="/oauth-success" element={<OAuthSuccess />} />
 
-            {/* Public patient record view (after booking) */}
+            {/* Public view of patient records */}
             <Route path="/patients/:id" element={<PatientRecord />} />
 
-            {/* Public appointment booking page */}
+            {/* Public appointment booking */}
             <Route path="/book-appointment" element={<BookAppointment />} />
 
 
@@ -124,9 +128,8 @@ export default function AppRouter() {
 
 
             {/* ===================================== */}
-            {/*             DOCTOR ROUTES             */}
+            {/*              DOCTOR ROUTES            */}
             {/* ===================================== */}
-
             <Route
               path="/doctor"
               element={
@@ -164,7 +167,6 @@ export default function AppRouter() {
             {/* ===================================== */}
             {/*              ADMIN ROUTES             */}
             {/* ===================================== */}
-
             <Route
               path="/admin"
               element={
@@ -200,11 +202,27 @@ export default function AppRouter() {
 
 
             {/* ===================================== */}
+            {/*            SUPERADMIN ROUTE           */}
+            {/* ===================================== */}
+            <Route
+              path="/admin/superadmin"
+              element={
+                <RequireAdmin>
+                  <Layout>
+                    <SuperAdminDashboard />
+                  </Layout>
+                </RequireAdmin>
+              }
+            />
+
+
+            {/* ===================================== */}
             {/*               NOT FOUND               */}
             {/* ===================================== */}
             <Route path="*" element={<NotFound />} />
 
           </Routes>
+
         </ThemeProvider>
       </AuthProvider>
     </BrowserRouter>

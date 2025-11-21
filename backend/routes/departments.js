@@ -2,22 +2,21 @@
 import express from "express";
 import Department from "../models/Department.js";
 import { requireAuth } from "../middleware/auth.js";
+import { withActivity } from "../middleware/withActivity.js";
 
 const router = express.Router();
 
 /* ---------------------------------------------------------
-   HELPER: check if user is Admin or SuperAdmin
+   ROLE CHECKER: Admin + SuperAdmin only
 --------------------------------------------------------- */
 const isAdminOrSuper = (user) => {
   return user.role === "Admin" || user.role === "SuperAdmin";
 };
 
 /* ---------------------------------------------------------
-   CREATE DEPARTMENT  
-   - SuperAdmin: allowed  
-   - Admin: allowed  
+   CREATE DEPARTMENT
 --------------------------------------------------------- */
-router.post("/", requireAuth, async (req, res) => {
+const createDepartmentHandler = async (req, res) => {
   if (!isAdminOrSuper(req.user))
     return res.status(403).json({ error: "Forbidden" });
 
@@ -35,13 +34,29 @@ router.post("/", requireAuth, async (req, res) => {
   });
 
   res.status(201).json(dept);
-});
+  return dept;
+};
+
+router.post(
+  "/",
+  requireAuth,
+  withActivity({
+    action: "Created Department",
+    getTarget: (req, res, dept) => `Department: ${dept?.name}`,
+    notify: true,
+    notification: (req, res, dept) => ({
+      title: "New Department Added",
+      message: `${req.user?.name || req.user?.email} added department "${dept?.name}"`,
+      data: { id: dept?._id, name: dept?.name },
+
+      // BOTH Admin and SuperAdmin should see this
+      targetRoles: ["Admin", "SuperAdmin"],
+    }),
+  })(createDepartmentHandler)
+);
 
 /* ---------------------------------------------------------
-   GET ALL DEPARTMENTS
-   - SuperAdmin: allowed  
-   - Admin: allowed  
-   - Doctors / others: allowed (READ ONLY)
+   GET ALL DEPARTMENTS  (Everyone with auth)
 --------------------------------------------------------- */
 router.get("/", requireAuth, async (req, res) => {
   const depts = await Department.find();
@@ -49,10 +64,9 @@ router.get("/", requireAuth, async (req, res) => {
 });
 
 /* ---------------------------------------------------------
-   UPDATE DEPARTMENT  
-   - Only SuperAdmin + Admin
+   UPDATE DEPARTMENT
 --------------------------------------------------------- */
-router.put("/:id", requireAuth, async (req, res) => {
+const updateDepartmentHandler = async (req, res) => {
   if (!isAdminOrSuper(req.user))
     return res.status(403).json({ error: "Forbidden" });
 
@@ -63,19 +77,59 @@ router.put("/:id", requireAuth, async (req, res) => {
   if (!dept) return res.status(404).json({ error: "Not found" });
 
   res.json(dept);
-});
+  return dept;
+};
+
+router.put(
+  "/:id",
+  requireAuth,
+  withActivity({
+    action: "Updated Department",
+    getTarget: (req, res, dept) => `Department: ${dept?.name}`,
+    notify: true,
+    notification: (req, res, dept) => ({
+      title: "Department Updated",
+      message: `${req.user?.name || req.user?.email} updated department "${dept?.name}"`,
+      data: { id: dept?._id },
+
+      // Notify BOTH Admin + SuperAdmin
+      targetRoles: ["Admin", "SuperAdmin"],
+    }),
+  })(updateDepartmentHandler)
+);
 
 /* ---------------------------------------------------------
-   DELETE DEPARTMENT  
-   - Only SuperAdmin + Admin
+   DELETE DEPARTMENT
 --------------------------------------------------------- */
-router.delete("/:id", requireAuth, async (req, res) => {
+const deleteDepartmentHandler = async (req, res) => {
   if (!isAdminOrSuper(req.user))
     return res.status(403).json({ error: "Forbidden" });
 
-  await Department.findByIdAndDelete(req.params.id);
+  const dept = await Department.findById(req.params.id);
+  if (!dept) return res.status(404).json({ error: "Not found" });
+
+  await dept.deleteOne();
 
   res.json({ message: "Deleted" });
-});
+  return dept;
+};
+
+router.delete(
+  "/:id",
+  requireAuth,
+  withActivity({
+    action: "Deleted Department",
+    getTarget: (req, res, dept) => `Department: ${dept?.name}`,
+    notify: true,
+    notification: (req, res, dept) => ({
+      title: "Department Removed",
+      message: `${req.user?.name || req.user?.email} deleted department "${dept?.name}"`,
+      data: { id: dept?._id },
+
+      // Notify BOTH Admin + SuperAdmin
+      targetRoles: ["Admin", "SuperAdmin"],
+    }),
+  })(deleteDepartmentHandler)
+);
 
 export default router;

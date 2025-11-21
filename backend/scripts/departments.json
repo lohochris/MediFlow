@@ -1,0 +1,23 @@
+[
+  { "name": "General Medicine", "description": "Diagnosis and treatment of common and chronic illnesses." },
+  { "name": "Pediatrics", "description": "Specialized medical care for infants, children, and adolescents." },
+  { "name": "Obstetrics & Gynecology (OB/GYN)", "description": "Maternal care, childbirth, and female reproductive health." },
+  { "name": "Surgery", "description": "Major and minor surgical operations." },
+  { "name": "Emergency (A&E)", "description": "24/7 urgent care for accidents and critical illnesses." },
+  { "name": "Laboratory", "description": "Blood tests, microbiology, chemistry, and diagnostic laboratories." },
+  { "name": "Radiology", "description": "Medical imaging including X-ray, CT scan, MRI, and ultrasound." },
+  { "name": "Ophthalmology", "description": "Eye examinations, treatments, and surgeries." },
+  { "name": "ENT", "description": "Ear, nose, throat, and head & neck medical services." },
+  { "name": "Dental Clinic", "description": "Oral care, tooth extraction, cleaning, and dental surgery." },
+  { "name": "Pharmacy", "description": "Dispensing medication and pharmaceutical counseling." },
+  { "name": "Physiotherapy", "description": "Rehabilitation, mobility recovery, and pain management." },
+  { "name": "Cardiology", "description": "Heart and cardiovascular system medical services." },
+  { "name": "Dermatology", "description": "Skin, hair, and nail treatments." },
+  { "name": "Oncology", "description": "Cancer diagnosis, therapy, and long-term care." },
+  { "name": "Neurology", "description": "Brain, nerve, and spinal cord specialties." },
+  { "name": "Psychiatry", "description": "Mental health evaluation, counseling, and treatment." },
+  { "name": "Urology", "description": "Urinary tract and male reproductive health." },
+  { "name": "Nephrology", "description": "Kidney disease management and treatment." },
+  { "name": "Orthopedics", "description": "Bone, joint, muscle, and skeletal system care." },
+  { "name": "Finance Department", "description": "Billing, payment processing, insurance, and financial records management." }
+]

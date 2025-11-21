@@ -3,14 +3,14 @@ import mongoose from "mongoose";
 
 const appointmentSchema = new mongoose.Schema(
   {
-    // Link to patient document (REQUIRED)
+    // Link to patient
     patient: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Patient",
       required: true,
     },
 
-    // Doctor is optional (Admin may schedule without choosing doctor)
+    // Optional doctor assignment
     doctor: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -28,14 +28,43 @@ const appointmentSchema = new mongoose.Schema(
       enum: ["pending", "completed", "cancelled"],
       default: "pending",
     },
+
+    // Automatically set when appointment is completed
+    completedAt: {
+      type: Date,
+      default: null,
+    },
+
+    // Helpful for analytics (timestamp at creation)
+    scheduledAt: {
+      type: Date,
+      default: () => new Date(),
+    },
   },
   { timestamps: true }
 );
 
-// Ensure frontend gets "id" instead of "_id"
+/* ---------------------------------------------------------
+   AUTO-HANDLE COMPLETION TIMESTAMP
+--------------------------------------------------------- */
+appointmentSchema.pre("findOneAndUpdate", function (next) {
+  const update = this.getUpdate();
+
+  // If status changes to completed and no completedAt is set
+  if (update?.status === "completed") {
+    update.completedAt = new Date();
+  }
+
+  next();
+});
+
+/* ---------------------------------------------------------
+   Format JSON output for frontend
+--------------------------------------------------------- */
 appointmentSchema.method("toJSON", function () {
   const obj = this.toObject();
   obj.id = obj._id;
+
   delete obj._id;
   delete obj.__v;
   return obj;

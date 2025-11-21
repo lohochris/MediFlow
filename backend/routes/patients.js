@@ -2,113 +2,161 @@
 import express from "express";
 import Patient from "../models/Patient.js";
 import { requireAuth } from "../middleware/auth.js";
+import { withActivity } from "../middleware/withActivity.js";
 
 const router = express.Router();
 
-/**
- * @route GET /patients
- * @desc Get all patients OR doctor-assigned patients (?assignedTo=me)
- * @access Private
- */
+/* ---------------------------------------------------------
+   ROLE CHECKER
+--------------------------------------------------------- */
+const isAdminOrDoctor = (user) => {
+  return user.role === "Admin" || user.role === "Doctor" || user.role === "SuperAdmin";
+};
+
+/* ---------------------------------------------------------
+   1. GET PATIENTS (All or Assigned to Doctor)
+--------------------------------------------------------- */
 router.get("/", requireAuth, async (req, res) => {
   try {
     const { assignedTo } = req.query;
 
-    // Get only patients assigned to the logged-in doctor
+    // Doctor-specific assigned patients
     if (assignedTo === "me") {
       const patients = await Patient.find({
-        assignedDoctor: req.user.id,
+        assignedDoctor: req.user._id,
       }).sort({ createdAt: -1 });
 
       return res.json(patients);
     }
 
-    // Get all patients
+    // Everyone else (Admin / SuperAdmin / Doctor) gets all patients
     const patients = await Patient.find().sort({ createdAt: -1 });
     res.json(patients);
+
   } catch (err) {
     console.error("GET /patients error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });
 
-/**
- * @route POST /patients
- * @desc Create a new patient
- * @access Private (Admin | Doctor)
- */
-router.post("/", requireAuth, async (req, res) => {
-  try {
-    const { name, email, phone, gender, dob, condition } = req.body;
+/* ---------------------------------------------------------
+   2. CREATE PATIENT (Admin + Doctor + SuperAdmin)
+--------------------------------------------------------- */
+const createPatientHandler = async (req, res) => {
+  if (!isAdminOrDoctor(req.user)) {
+    return res.status(403).json({ error: "Only Admin/Doctor allowed" });
+  }
 
-    // VALIDATION
-    if (!name || !gender || !dob) {
-      return res
-        .status(400)
-        .json({ error: "Name, Gender, and Date of Birth are required." });
-    }
+  const { name, email, phone, gender, dob, condition, assignedDoctor } = req.body;
 
-    const patient = await Patient.create({
-      name,
-      email,
-      phone,
-      gender,
-      dob,
-      condition,
+  if (!name || !gender || !dob) {
+    return res.status(400).json({
+      error: "Name, Gender, and Date of Birth are required.",
     });
-
-    res.status(201).json(patient);
-  } catch (err) {
-    console.error("POST /patients error:", err);
-    res.status(500).json({ error: "Server error" });
   }
-});
 
-/**
- * @route PUT /patients/:id
- * @desc Update patient
- * @access Private
- */
-router.put("/:id", requireAuth, async (req, res) => {
-  try {
-    const { name, email, phone, gender, dob, condition } = req.body;
+  const patient = await Patient.create({
+    name,
+    email,
+    phone,
+    gender,
+    dob,
+    condition,
+    assignedDoctor: assignedDoctor || null,
+  });
 
-    const updated = await Patient.findByIdAndUpdate(
-      req.params.id,
-      { name, email, phone, gender, dob, condition },
-      { new: true, runValidators: true }
-    );
+  res.status(201).json(patient);
+  return patient; // for Activity + Notifications
+};
 
-    if (!updated) {
-      return res.status(404).json({ error: "Patient not found" });
-    }
+router.post(
+  "/",
+  requireAuth,
+  withActivity({
+    action: "Created Patient",
+    getTarget: (req, res, patient) => `Patient: ${patient?.name}`,
+    notify: true,
+    notification: (req, res, patient) => ({
+      title: "New Patient Registered",
+      message: `${req.user?.name} registered patient "${patient?.name}"`,
+      data: { id: patient?._id, name: patient?.name },
+      targetRoles: ["Admin", "SuperAdmin"], // BOTH see it
+    }),
+  })(createPatientHandler)
+);
 
-    res.json(updated);
-  } catch (err) {
-    console.error("PUT /patients/:id error:", err);
-    res.status(500).json({ error: "Server error" });
+/* ---------------------------------------------------------
+   3. UPDATE PATIENT (Admin + Doctor + SuperAdmin)
+--------------------------------------------------------- */
+const updatePatientHandler = async (req, res) => {
+  if (!isAdminOrDoctor(req.user)) {
+    return res.status(403).json({ error: "Only Admin/Doctor allowed" });
   }
-});
 
-/**
- * @route DELETE /patients/:id
- * @desc Delete patient
- * @access Private
- */
-router.delete("/:id", requireAuth, async (req, res) => {
-  try {
-    const found = await Patient.findById(req.params.id);
+  const { name, email, phone, gender, dob, condition, assignedDoctor } = req.body;
 
-    if (!found) {
-      return res.status(404).json({ error: "Patient not found" });
-    }
+  const updated = await Patient.findByIdAndUpdate(
+    req.params.id,
+    { name, email, phone, gender, dob, condition, assignedDoctor },
+    { new: true, runValidators: true }
+  );
 
-    await Patient.findByIdAndDelete(req.params.id);
-    res.json({ message: "Patient deleted" });
-  } catch (err) {
-    console.error("DELETE /patients/:id error:", err);
-    res.status(500).json({ error: "Server error" });
+  if (!updated) {
+    return res.status(404).json({ error: "Patient not found" });
   }
-});
+
+  res.json(updated);
+  return updated;
+};
+
+router.put(
+  "/:id",
+  requireAuth,
+  withActivity({
+    action: "Updated Patient",
+    getTarget: (req, res, patient) => `Patient: ${patient?.name}`,
+    notify: true,
+    notification: (req, res, patient) => ({
+      title: "Patient Updated",
+      message: `${req.user?.name} updated patient "${patient?.name}"`,
+      data: { id: patient?._id },
+      targetRoles: ["Admin", "SuperAdmin"],
+    }),
+  })(updatePatientHandler)
+);
+
+/* ---------------------------------------------------------
+   4. DELETE PATIENT (Admin + Doctor + SuperAdmin)
+--------------------------------------------------------- */
+const deletePatientHandler = async (req, res) => {
+  if (!isAdminOrDoctor(req.user)) {
+    return res.status(403).json({ error: "Only Admin/Doctor allowed" });
+  }
+
+  const found = await Patient.findById(req.params.id);
+
+  if (!found) return res.status(404).json({ error: "Patient not found" });
+
+  await Patient.findByIdAndDelete(req.params.id);
+
+  res.json({ message: "Patient deleted" });
+  return found; // for logs + notifications
+};
+
+router.delete(
+  "/:id",
+  requireAuth,
+  withActivity({
+    action: "Deleted Patient",
+    getTarget: (req, res, patient) => `Patient: ${patient?.name}`,
+    notify: true,
+    notification: (req, res, patient) => ({
+      title: "Patient Removed",
+      message: `${req.user?.name} removed patient "${patient?.name}"`,
+      data: { id: patient?._id },
+      targetRoles: ["Admin", "SuperAdmin"],
+    }),
+  })(deletePatientHandler)
+);
 
 export default router;

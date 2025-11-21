@@ -29,14 +29,14 @@ export default function Sidebar() {
     { label: "Settings", icon: Settings, path: "/settings" },
   ];
 
-  /** ADMIN MENU — only Admin or SuperAdmin */
+  /** ADMIN MENU — Admin + SuperAdmin */
   const adminMenu = [
     { label: "Admin Dashboard", icon: Shield, path: "/admin" },
     { label: "Departments", icon: Building2, path: "/admin/departments" },
     { label: "User Management", icon: UserCog, path: "/admin/users" },
   ];
 
-  /** DOCTOR MENU — only Doctor */
+  /** DOCTOR MENU — Doctor + SuperAdmin */
   const doctorMenu = [
     { label: "Doctor Dashboard", icon: Stethoscope, path: "/doctor" },
     { label: "My Patients", icon: Users, path: "/doctor/patients" },
@@ -44,7 +44,7 @@ export default function Sidebar() {
   ];
 
   return (
-    <aside className="w-64 h-screen bg-white dark:bg-slate-900 shadow-card fixed left-0 top-0 flex flex-col border-r border-slate-200 dark:border-slate-700">
+    <aside className="w-64 h-screen bg-white dark:bg-slate-900 shadow-card fixed left-0 top-0 flex flex-col border-r border-slate-200 dark:border-slate-700 overflow-hidden">
       
       {/* Logo */}
       <div className="px-6 py-6 border-b border-slate-200 dark:border-slate-700">
@@ -56,8 +56,8 @@ export default function Sidebar() {
         </p>
       </div>
 
-      {/* MAIN NAVIGATION */}
-      <nav className="flex-1 px-4 py-6 space-y-2">
+      {/* MAIN NAVIGATION - scrollable */}
+      <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto scrollbar-thin scrollbar-track-transparent scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700">
 
         {/* GENERAL MENU */}
         {menu.map(({ label, icon: Icon, path }) => (
@@ -65,73 +65,100 @@ export default function Sidebar() {
             key={path}
             to={path}
             className={({ isActive }) =>
-              `
-              flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-soft cursor-pointer
+              `flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-soft cursor-pointer
               ${isActive
                 ? "bg-emerald-600 text-white shadow-sm"
-                : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
-              }
-            `
-            }
+                : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"}
+            `}
           >
             <Icon size={20} />
             {label}
           </NavLink>
         ))}
 
-        {/* ADMIN SECTION */}
+        {/* ============================================= */}
+        {/*             SUPERADMIN SECTION                */}
+        {/* ============================================= */}
+
+        {user && user.role === "SuperAdmin" && (
+          <div className="mt-6 pt-4 border-t border-slate-200 dark:border-slate-700">
+            <p className="text-xs font-semibold text-slate-400 uppercase mb-2">
+              SuperAdmin
+            </p>
+
+            <NavLink
+              to="/admin/superadmin"
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-soft cursor-pointer
+                ${isActive
+                  ? "bg-emerald-600 text-white shadow-sm"
+                  : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"}
+              `
+              }
+            >
+              <Shield size={20} />
+              SuperAdmin Dashboard
+            </NavLink>
+          </div>
+        )}
+
+        {/* ============================================= */}
+        {/*                  ADMIN SECTION                */}
+        {/* ============================================= */}
         {user && (user.role === "Admin" || user.role === "SuperAdmin") && (
           <div className="mt-6 pt-4 border-t border-slate-200 dark:border-slate-700">
             <p className="text-xs font-semibold text-slate-400 uppercase mb-2">
               Admin
             </p>
 
-            {adminMenu.map(({ label, icon: Icon, path }) => (
-              <NavLink
-                key={path}
-                to={path}
-                className={({ isActive }) =>
+            <div className="flex flex-col space-y-2">
+              {adminMenu.map(({ label, icon: Icon, path }) => (
+                <NavLink
+                  key={path}
+                  to={path}
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-soft cursor-pointer
+                    ${isActive
+                      ? "bg-emerald-600 text-white shadow-sm"
+                      : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"}
                   `
-                  flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-soft cursor-pointer
-                  ${isActive
-                    ? "bg-emerald-600 text-white shadow-sm"
-                    : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
                   }
-                `
-                }
-              >
-                <Icon size={20} />
-                {label}
-              </NavLink>
-            ))}
+                >
+                  <Icon size={20} />
+                  {label}
+                </NavLink>
+              ))}
+            </div>
           </div>
         )}
 
-        {/* DOCTOR SECTION */}
-        {user && user.role === "Doctor" && (
+        {/* ============================================= */}
+        {/*                DOCTOR SECTION                 */}
+        {/* ============================================= */}
+        {user && (user.role === "Doctor" || user.role === "SuperAdmin") && (
           <div className="mt-6 pt-4 border-t border-slate-200 dark:border-slate-700">
             <p className="text-xs font-semibold text-slate-400 uppercase mb-2">
               Doctor
             </p>
 
-            {doctorMenu.map(({ label, icon: Icon, path }) => (
-              <NavLink
-                key={path}
-                to={path}
-                className={({ isActive }) =>
+            <div className="flex flex-col space-y-2">
+              {doctorMenu.map(({ label, icon: Icon, path }) => (
+                <NavLink
+                  key={path}
+                  to={path}
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-soft cursor-pointer
+                    ${isActive
+                      ? "bg-emerald-600 text-white shadow-sm"
+                      : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"}
                   `
-                  flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-soft cursor-pointer
-                  ${isActive
-                    ? "bg-emerald-600 text-white shadow-sm"
-                    : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
                   }
-                `
-                }
-              >
-                <Icon size={20} />
-                {label}
-              </NavLink>
-            ))}
+                >
+                  <Icon size={20} />
+                  {label}
+                </NavLink>
+              ))}
+            </div>
           </div>
         )}
       </nav>
