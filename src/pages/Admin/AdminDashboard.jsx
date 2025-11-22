@@ -11,7 +11,16 @@ import {
   FolderPlus,
 } from "lucide-react";
 
-// Reusable KPI Card
+import {
+  getAdminKPIs,
+  getAdminActivity,
+} from "../../services/adminService";
+
+import api from "../../api/api"; // unified axios
+
+/* ------------------------------------------
+   KPI COMPONENT
+-------------------------------------------*/
 function KPI({ title, value, icon }) {
   return (
     <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 shadow-sm border border-slate-200 dark:border-slate-700">
@@ -44,49 +53,45 @@ export default function AdminDashboard() {
   const [activity, setActivity] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // SAFELY parse JSON, fallback to array/object
-  const safeJson = async (res, fallback) => {
-    try {
-      if (!res.ok) return fallback;
-      const data = await res.json();
-      return Array.isArray(fallback) ? (Array.isArray(data) ? data : fallback) : data;
-    } catch {
-      return fallback;
-    }
-  };
-
-  /* Load Admin Data */
+  /* -------------------------------------------------------
+     LOAD ADMIN DASHBOARD
+  --------------------------------------------------------*/
   useEffect(() => {
-    const load = async () => {
+    const loadDashboard = async () => {
       try {
         setLoading(true);
 
-        const [kpiRes, notifRes, actRes] = await Promise.all([
-          safeJson(await fetch("/api/admin/kpis", { credentials: "include" }), {}),
-          safeJson(await fetch("/api/admin/notifications?limit=10", { credentials: "include" }), []),
-          safeJson(await fetch("/api/admin/activity?limit=20", { credentials: "include" }), []),
+        const [kpiData, activityData, notifRes] = await Promise.all([
+          getAdminKPIs(),
+          getAdminActivity(20),
+          api
+            .get("/api/admin/notifications?limit=10", {
+              withCredentials: true,
+            })
+            .then((r) => r.data)
+            .catch(() => []),
         ]);
 
-        setKpis(kpiRes || {});
-        setNotifications(notifRes || []);
-        setActivity(actRes || []);
+        setKpis(kpiData || {});
+        setActivity(Array.isArray(activityData) ? activityData : []);
+        setNotifications(Array.isArray(notifRes) ? notifRes : []);
       } catch (err) {
-        console.error("Error loading admin dashboard:", err);
+        console.error("AdminDashboard load error:", err);
       } finally {
         setLoading(false);
       }
     };
 
-    load();
+    loadDashboard();
   }, []);
 
+  /* -------------------------------------------------------
+     MARK ALL NOTIFICATIONS READ
+  --------------------------------------------------------*/
   const markAllRead = async () => {
     try {
-      await fetch("/api/admin/notifications/mark-read", {
-        method: "PATCH",
-        credentials: "include",
-      });
-      setNotifications(notifications.map((n) => ({ ...n, read: true })));
+      await api.patch("/api/admin/notifications/mark-read", {}, { withCredentials: true });
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
     } catch (err) {
       console.error("Failed to mark notifications as read:", err);
     }
@@ -94,7 +99,7 @@ export default function AdminDashboard() {
 
   return (
     <div className="p-6 min-h-screen bg-slate-50 dark:bg-slate-900">
-      {/* Header */}
+      {/* HEADER */}
       <div className="mb-6">
         <h1 className="text-2xl font-semibold text-slate-800 dark:text-white">
           Admin Dashboard
@@ -104,7 +109,7 @@ export default function AdminDashboard() {
         </p>
       </div>
 
-      {/* KPI Section */}
+      {/* KPI CARDS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <KPI
           title="Departments"
@@ -129,14 +134,12 @@ export default function AdminDashboard() {
       </div>
 
       <div className="grid grid-cols-12 gap-6">
-        {/* Left Section */}
+        {/* LEFT PANEL */}
         <div className="col-span-12 lg:col-span-8 space-y-6">
-          {/* Activity Log */}
+
+          {/* ACTIVITY LOG */}
           <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 shadow-sm border border-slate-200 dark:border-slate-700">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-lg">Recent Activity</h3>
-              <span className="text-sm text-slate-400">Latest 20 entries</span>
-            </div>
+            <h3 className="font-semibold text-lg mb-4">Recent Activity</h3>
 
             <div className="max-h-72 overflow-y-auto">
               <table className="w-full text-left">
@@ -148,6 +151,7 @@ export default function AdminDashboard() {
                     <th>Target</th>
                   </tr>
                 </thead>
+
                 <tbody>
                   {activity.length === 0 ? (
                     <tr>
@@ -158,7 +162,7 @@ export default function AdminDashboard() {
                   ) : (
                     activity.map((a) => (
                       <tr
-                        key={a._id}
+                        key={a._id || a.timestamp}
                         className="border-b hover:bg-slate-100 dark:hover:bg-slate-800"
                       >
                         <td className="py-2 text-sm text-slate-500">
@@ -166,7 +170,9 @@ export default function AdminDashboard() {
                         </td>
                         <td className="py-2 text-sm">{a.userName}</td>
                         <td className="py-2 text-sm">{a.action}</td>
-                        <td className="py-2 text-sm text-slate-500">{a.target}</td>
+                        <td className="py-2 text-sm text-slate-500">
+                          {a.target}
+                        </td>
                       </tr>
                     ))
                   )}
@@ -175,53 +181,56 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          {/* Management Cards */}
+          {/* MANAGEMENT LINKS */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+
             <Link
               to="/admin/departments"
-              className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-6 shadow-card hover:shadow-lg transition transform hover:-translate-y-1"
+              className="bg-white dark:bg-slate-900 border rounded-xl p-6 shadow hover:shadow-lg transition"
             >
               <div className="flex items-center gap-3 mb-3">
-                <Building2 className="text-brand" size={24} />
+                <Building2 size={24} className="text-brand" />
                 <h3 className="text-lg font-semibold">Departments</h3>
               </div>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                Create and manage hospital departments.
+              <p className="text-sm text-slate-500">
+                Create & manage hospital departments.
               </p>
             </Link>
 
             <Link
               to="/admin/users"
-              className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-6 shadow-card hover:shadow-lg transition transform hover:-translate-y-1"
+              className="bg-white dark:bg-slate-900 border rounded-xl p-6 shadow hover:shadow-lg transition"
             >
               <div className="flex items-center gap-3 mb-3">
-                <Users2 className="text-brand" size={24} />
+                <Users2 size={24} className="text-brand" />
                 <h3 className="text-lg font-semibold">Users & Roles</h3>
               </div>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
+              <p className="text-sm text-slate-500">
                 Manage staff accounts & permissions.
               </p>
             </Link>
 
             <Link
               to="/admin/system"
-              className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-6 shadow-card hover:shadow-lg transition transform hover:-translate-y-1"
+              className="bg-white dark:bg-slate-900 border rounded-xl p-6 shadow hover:shadow-lg transition"
             >
               <div className="flex items-center gap-3 mb-3">
-                <Settings className="text-brand" size={24} />
+                <Settings size={24} className="text-brand" />
                 <h3 className="text-lg font-semibold">System Settings</h3>
               </div>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
+              <p className="text-sm text-slate-500">
                 Configure preferences & audit logs.
               </p>
             </Link>
+
           </div>
         </div>
 
-        {/* Right Section */}
+        {/* RIGHT PANEL */}
         <div className="col-span-12 lg:col-span-4 space-y-6">
-          {/* Notifications */}
-          <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 shadow-sm border border-slate-200 dark:border-slate-700">
+
+          {/* NOTIFICATIONS */}
+          <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 shadow-sm border">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-lg font-semibold">Notifications</h3>
               <button onClick={markAllRead} className="text-xs text-emerald-600">
@@ -234,8 +243,8 @@ export default function AdminDashboard() {
                 <p className="text-sm text-slate-400">No notifications</p>
               ) : (
                 notifications.map((n) => (
-                  <div key={n._id} className="flex items-start gap-3">
-                    <div className="p-2 rounded-md bg-emerald-50 dark:bg-emerald-900/20">
+                  <div key={n._id || n.timestamp} className="flex items-start gap-3">
+                    <div className="p-2 bg-emerald-50 dark:bg-emerald-900/20 rounded-md">
                       <Bell size={18} className="text-emerald-600" />
                     </div>
                     <div>
@@ -251,34 +260,34 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          {/* Quick Actions */}
-          <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 shadow-sm border border-slate-200 dark:border-slate-700">
+          {/* QUICK ACTIONS */}
+          <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 shadow-sm border">
             <h3 className="text-sm font-semibold mb-3">Quick Actions</h3>
 
             <div className="grid grid-cols-2 gap-3">
               <button
                 onClick={() => navigate("/admin/departments")}
-                className="py-2 rounded-lg border text-sm flex items-center justify-center gap-2 border-slate-200 dark:border-slate-700"
+                className="py-2 text-sm border rounded-lg flex items-center justify-center gap-2"
               >
                 <FolderPlus size={16} /> Add Dept
               </button>
 
               <button
                 onClick={() => navigate("/admin/users")}
-                className="py-2 rounded-lg border text-sm flex items-center justify-center gap-2 border-slate-200 dark:border-slate-700"
+                className="py-2 text-sm border rounded-lg flex items-center justify-center gap-2"
               >
                 <Users2 size={16} /> Add Doctor
               </button>
 
-              <button className="py-2 rounded-lg border text-sm border-slate-200 dark:border-slate-700">
+              <button className="py-2 text-sm border rounded-lg">
                 Generate Report
               </button>
-
-              <button className="py-2 rounded-lg border text-sm border-slate-200 dark:border-slate-700">
+              <button className="py-2 text-sm border rounded-lg">
                 Export Data
               </button>
             </div>
           </div>
+
         </div>
       </div>
     </div>

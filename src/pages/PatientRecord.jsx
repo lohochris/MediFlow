@@ -13,14 +13,24 @@ export default function PatientRecord() {
 
   const [patient, setPatient] = useState(null);
   const [loading, setLoading] = useState(true);
+
   const [newNote, setNewNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  /* ============================================================
+     LOAD PATIENT DETAILS
+  ============================================================ */
   const load = async () => {
     try {
       setLoading(true);
+
       const p = await getPatient(id);
-      setPatient(p);
+
+      setPatient({
+        ...p,
+        medicalNotes: Array.isArray(p.medicalNotes) ? p.medicalNotes : [],
+      });
+
       window.scrollTo(0, 0);
     } catch (err) {
       console.error(err);
@@ -34,11 +44,11 @@ export default function PatientRecord() {
     load();
   }, [id]);
 
+  /* ============================================================
+     ADD NEW MEDICAL NOTE
+  ============================================================ */
   const handleAddNote = async () => {
-    if (!newNote.trim()) {
-      toast.error("Please enter a note");
-      return;
-    }
+    if (!newNote.trim()) return toast.error("Please enter a note");
 
     try {
       setSubmitting(true);
@@ -47,7 +57,7 @@ export default function PatientRecord() {
 
       setPatient((prev) => ({
         ...prev,
-        medicalNotes: updatedNotes,
+        medicalNotes: Array.isArray(updatedNotes) ? updatedNotes : [],
       }));
 
       setNewNote("");
@@ -60,10 +70,13 @@ export default function PatientRecord() {
     }
   };
 
+  /* ============================================================
+     STATE: LOADING OR PATIENT NOT FOUND
+  ============================================================ */
   if (loading)
     return (
       <div className="p-6 text-center text-slate-600 dark:text-slate-300">
-        Loading patient...
+        Loading patient…
       </div>
     );
 
@@ -75,13 +88,16 @@ export default function PatientRecord() {
         </p>
         <button
           onClick={() => navigate(-1)}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-slate-200 dark:bg-slate-700 rounded-lg hover:bg-slate-300 dark:hover:bg-slate-600 transition"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-slate-200 dark:bg-slate-700 rounded-lg"
         >
           <ArrowLeftCircle size={18} /> Go Back
         </button>
       </div>
     );
 
+  /* ============================================================
+     RENDER PATIENT DETAILS
+  ============================================================ */
   return (
     <div className="p-6 max-w-3xl mx-auto">
       {/* HEADER */}
@@ -96,8 +112,10 @@ export default function PatientRecord() {
           </p>
 
           <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">
-            Gender: {patient.gender} • DOB:{" "}
-            {patient.dob ? format(new Date(patient.dob), "yyyy-MM-dd") : "—"}
+            Gender: {patient.gender || "—"} • DOB:{" "}
+            {patient.dob
+              ? format(new Date(patient.dob), "yyyy-MM-dd")
+              : "—"}
           </p>
         </div>
 
@@ -118,7 +136,7 @@ export default function PatientRecord() {
           </h2>
         </div>
 
-        {(!patient.medicalNotes || patient.medicalNotes.length === 0) && (
+        {patient.medicalNotes.length === 0 && (
           <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg text-sm text-slate-500 dark:text-slate-400">
             No notes added yet.
           </div>
@@ -134,8 +152,11 @@ export default function PatientRecord() {
                 <div className="text-sm font-medium text-slate-800 dark:text-slate-200">
                   {note.doctor?.name || "Doctor"}
                 </div>
+
                 <div className="text-xs text-slate-400">
-                  {format(new Date(note.createdAt), "yyyy-MM-dd HH:mm")}
+                  {note.createdAt
+                    ? format(new Date(note.createdAt), "yyyy-MM-dd HH:mm")
+                    : ""}
                 </div>
               </div>
 
@@ -147,7 +168,7 @@ export default function PatientRecord() {
         </div>
       </section>
 
-      {/* ADD NEW NOTE */}
+      {/* NEW NOTE */}
       <section>
         <h3 className="text-md font-medium mb-2 text-slate-800 dark:text-white">
           Add Note
@@ -157,7 +178,7 @@ export default function PatientRecord() {
           value={newNote}
           onChange={(e) => setNewNote(e.target.value)}
           rows="4"
-          placeholder="Write examination, diagnosis, prescription or notes..."
+          placeholder="Write examination, diagnosis, prescriptions, etc..."
           className="w-full p-3 rounded-xl border border-slate-300 dark:border-slate-700 dark:bg-slate-900 text-slate-800 dark:text-slate-200 mb-3"
         ></textarea>
 

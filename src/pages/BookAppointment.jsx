@@ -24,50 +24,53 @@ export default function BookAppointment() {
   const [success, setSuccess] = useState(false);
   const [appointmentInfo, setAppointmentInfo] = useState(null);
 
+  /* -------------------------------------------------------------
+     SUBMIT FORM
+  --------------------------------------------------------------*/
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (
-      !form.name ||
-      !form.phone ||
-      !form.gender ||
-      !form.dob ||
-      !form.type ||
-      !form.date ||
-      !form.time
-    ) {
-      toast.error("Please fill all required fields.");
-      return;
+    // Required fields validation
+    const required = ["name", "phone", "gender", "dob", "type", "date", "time"];
+    for (const field of required) {
+      if (!form[field] || !String(form[field]).trim()) {
+        toast.error("Please fill all required fields.");
+        return;
+      }
     }
 
     try {
-      // -------------------------------
-      // 1) CREATE PATIENT (public flow)
-      // -------------------------------
+      // -----------------------------------------------------
+      // 1) CREATE PATIENT
+      // -----------------------------------------------------
       const patient = await createPatient({
-        name: form.name,
-        phone: form.phone,
-        email: form.email || "",
+        name: form.name.trim(),
+        phone: form.phone.trim(),
+        email: form.email?.trim() || "",
         gender: form.gender,
         dob: form.dob,
-        condition: "",
       });
 
-      // -------------------------------
-      // 2) CREATE APPOINTMENT
-      // -------------------------------
-     const appt = await createAppointment({
-  patientId: patient.id,
-  type: form.type,
-  date: form.date,
-  time: form.time,
-});
+      const patientId = patient?._id || patient?.id;
+      if (!patientId) {
+        throw new Error("Invalid patient ID returned from server");
+      }
 
+      // -----------------------------------------------------
+      // 2) CREATE APPOINTMENT
+      // -----------------------------------------------------
+      const appt = await createAppointment({
+        patientId,
+        type: form.type,
+        date: form.date,
+        time: form.time,
+      });
 
       toast.success("Appointment booked successfully!");
 
-      setSuccess(true);
+      // Save success state
       setAppointmentInfo({ patient, appt });
+      setSuccess(true);
 
       // Reset form
       setForm({
@@ -83,13 +86,18 @@ export default function BookAppointment() {
 
     } catch (err) {
       console.error("BOOK APPOINTMENT ERROR:", err);
-      toast.error("Failed to book appointment. Try again.");
+      toast.error(err?.response?.data?.error || "Failed to book appointment");
     }
   };
 
+  /* -------------------------------------------------------------
+     RENDER UI
+  --------------------------------------------------------------*/
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-100 dark:bg-slate-900 p-6">
+
       {success && appointmentInfo ? (
+        /* SUCCESS CARD */
         <motion.div
           initial={{ opacity: 0, scale: 0.96 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -117,12 +125,14 @@ export default function BookAppointment() {
             >
               Go to Login
             </button>
+
             <button
               onClick={() => navigate("/dashboard")}
               className="w-full py-2 border border-emerald-600 text-emerald-600 rounded-lg"
             >
               Dashboard
             </button>
+
             <button
               onClick={() => {
                 setSuccess(false);
@@ -135,6 +145,7 @@ export default function BookAppointment() {
           </div>
         </motion.div>
       ) : (
+        /* APPOINTMENT FORM */
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
@@ -211,7 +222,7 @@ export default function BookAppointment() {
               </select>
             </div>
 
-            {/* TYPE */}
+            {/* APPOINTMENT TYPE */}
             <div>
               <label className="block text-sm mb-1">Appointment Type *</label>
               <select

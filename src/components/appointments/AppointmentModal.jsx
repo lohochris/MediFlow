@@ -1,5 +1,7 @@
+// src/components/appointments/AppointmentModal.jsx
 import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import toast from "react-hot-toast";
 
 export default function AppointmentModal({
   open,
@@ -15,27 +17,39 @@ export default function AppointmentModal({
     type: "",
   });
 
-  // Load data when opening or editing
+  // Load initial form
   useEffect(() => {
-    if (open && editData) {
+    if (!open) return;
+
+    if (editData) {
+      const patientId =
+        editData.patient?.id ||
+        editData.patient?._id ||
+        editData.patient ||
+        "";
+
       setForm({
-        patient: editData.patient?.id || editData.patient?._id || "",
-        date: editData.date,
-        time: editData.time,
-        type: editData.type,
+        patient: patientId,
+        date: editData.date || "",
+        time: editData.time || "",
+        type: editData.type || "",
       });
-    } else if (open) {
+    } else {
       setForm({ patient: "", date: "", time: "", type: "" });
     }
   }, [open, editData]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!form.patient || !form.date || !form.time || !form.type) return;
 
-    // Backend expects: patient, date, time, type
+    if (!form.patient || !form.date || !form.time || !form.type) {
+      toast.error("All fields are required.");
+      return;
+    }
+
+    // Backend expects: patientId, date, time, type
     onSave({
-      patient: form.patient,
+      patientId: form.patient,
       date: form.date,
       time: form.time,
       type: form.type,
@@ -68,7 +82,7 @@ export default function AppointmentModal({
                   onChange={(e) =>
                     setForm({ ...form, patient: e.target.value })
                   }
-                  className="w-full border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2"
+                  className="w-full border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2"
                 >
                   <option value="">Select patient</option>
                   {patients.map((p) => (
@@ -81,6 +95,7 @@ export default function AppointmentModal({
 
               {/* Date & Time */}
               <div className="grid grid-cols-2 gap-4">
+                {/* Date */}
                 <div>
                   <label className="text-sm text-slate-600 dark:text-slate-300">
                     Date
@@ -91,10 +106,11 @@ export default function AppointmentModal({
                     onChange={(e) =>
                       setForm({ ...form, date: e.target.value })
                     }
-                    className="w-full border rounded-lg px-3 py-2"
+                    className="w-full border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2"
                   />
                 </div>
 
+                {/* Time */}
                 <div>
                   <label className="text-sm text-slate-600 dark:text-slate-300">
                     Time
@@ -105,7 +121,7 @@ export default function AppointmentModal({
                     onChange={(e) =>
                       setForm({ ...form, time: e.target.value })
                     }
-                    className="w-full border rounded-lg px-3 py-2"
+                    className="w-full border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2"
                   />
                 </div>
               </div>
@@ -120,14 +136,14 @@ export default function AppointmentModal({
                   onChange={(e) =>
                     setForm({ ...form, type: e.target.value })
                   }
-                  className="w-full border rounded-lg px-3 py-2"
+                  className="w-full border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2"
                 >
                   <option value="">Select type</option>
-                  <option>Checkup</option>
-                  <option>Consultation</option>
-                  <option>Dental</option>
-                  <option>Emergency</option>
-                  <option>Surgery</option>
+                  <option value="Checkup">Checkup</option>
+                  <option value="Consultation">Consultation</option>
+                  <option value="Dental">Dental</option>
+                  <option value="Emergency">Emergency</option>
+                  <option value="Surgery">Surgery</option>
                 </select>
               </div>
 

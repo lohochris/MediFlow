@@ -1,13 +1,15 @@
-import React, { useState, useEffect, useMemo } from "react";
+// src/pages/Patients.jsx
+import React, { useEffect, useMemo, useState } from "react";
 import AddPatientModal from "../components/patients/AddPatientModal";
 import { Pencil, Trash2, UserPlus } from "lucide-react";
+import toast from "react-hot-toast";
+
 import {
   getAllPatients,
   createPatient,
   updatePatient,
   deletePatient,
 } from "../services/patientService";
-import toast from "react-hot-toast";
 
 export default function Patients() {
   const [patients, setPatients] = useState([]);
@@ -17,21 +19,31 @@ export default function Patients() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // Calculate age from DOB
-  const calculateAge = (dob) => {
-    if (!dob) return "-";
-    const diff = Date.now() - new Date(dob).getTime();
-    return new Date(diff).getUTCFullYear() - 1970;
+  // ---------- helpers ----------
+  // Robust age calculation: prefer explicit age field, otherwise compute from dob
+  const calculateAge = (dob, explicitAge) => {
+    if (typeof explicitAge === "number" && !Number.isNaN(explicitAge)) return explicitAge;
+    if (!dob) return "—";
+    const d = new Date(dob);
+    if (isNaN(d)) return "—";
+    const diffMs = Date.now() - d.getTime();
+    const ageDt = new Date(diffMs);
+    return ageDt.getUTCFullYear() - 1970;
   };
 
+  const normalizeId = (p) => p?.id || p?._id || "";
+
+  // ---------- load ----------
   const loadPatients = async () => {
     try {
       setLoading(true);
+      setError("");
       const data = await getAllPatients();
       setPatients(Array.isArray(data) ? data : []);
-      setError("");
     } catch (err) {
+      console.error("Load patients error:", err);
       setError("Could not load patients. Make sure the API is running.");
+      setPatients([]);
     } finally {
       setLoading(false);
     }
@@ -41,55 +53,71 @@ export default function Patients() {
     loadPatients();
   }, []);
 
-  // Search functionality (fixed)
+  // ---------- search ----------
   const filtered = useMemo(() => {
-    const q = query.toLowerCase();
-    return patients.filter((p) =>
-      [
-        p.name,
-        p.gender,
-        p.phone,
-        p.email,
-        calculateAge(p.dob).toString(),
-      ]
-        .filter(Boolean)
-        .some((value) => value.toString().toLowerCase().includes(q))
-    );
+    const q = (query || "").trim().toLowerCase();
+    if (!q) return patients;
+    return patients.filter((p) => {
+      const name = (p.name || "").toString().toLowerCase();
+      const gender = (p.gender || "").toString().toLowerCase();
+      const phone = (p.phone || "").toString().toLowerCase();
+      const email = (p.email || "").toString().toLowerCase();
+      const ageStr = String(calculateAge(p.dob, p.age)).toLowerCase();
+
+      return (
+        name.includes(q) ||
+        gender.includes(q) ||
+        phone.includes(q) ||
+        email.includes(q) ||
+        ageStr.includes(q)
+      );
+    });
   }, [patients, query]);
 
-  // Save patient (create or update)
+  // ---------- create / update ----------
   const handleSave = async (payload) => {
     try {
       if (editPatient) {
-        await updatePatient(editPatient.id, payload);
+        // update
+        const id = normalizeId(editPatient);
+        await updatePatient(id, payload);
         toast.success("Patient updated!");
+        setPatients((prev) =>
+          prev.map((p) => (String(normalizeId(p)) === String(id) ? { ...p, ...payload } : p))
+        );
       } else {
-        await createPatient(payload);
+        // create
+        const created = await createPatient(payload);
         toast.success("Patient added successfully!");
+        // backend may return the created patient object
+        const added = Array.isArray(created)
+          ? created[0]
+          : created;
+        setPatients((prev) => [added || payload, ...prev]);
       }
 
       setModalOpen(false);
       setEditPatient(null);
-      await loadPatients();
     } catch (err) {
-      toast.error("Failed to save patient.");
+      console.error("Save patient error:", err);
+      toast.error(err?.response?.data?.error || "Failed to save patient.");
     }
   };
 
-  // Delete patient
+  // ---------- delete ----------
   const handleDelete = async (id) => {
-    if (!confirm("Are you sure you want to delete this patient? This action cannot be undone."))
-      return;
-
+    if (!confirm("Are you sure you want to delete this patient? This action cannot be undone.")) return;
     try {
       await deletePatient(id);
       toast.success("Patient deleted.");
-      await loadPatients();
+      setPatients((prev) => prev.filter((p) => String(normalizeId(p)) !== String(id)));
     } catch (err) {
+      console.error("Delete patient error:", err);
       toast.error("Failed to delete patient.");
     }
   };
 
+  // ---------- edit ----------
   const openEdit = (p) => {
     setEditPatient(p);
     setModalOpen(true);
@@ -97,20 +125,14 @@ export default function Patients() {
 
   return (
     <div className="p-6">
-
-      {/* Title */}
+      {/* Header */}
       <div className="flex items-start justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-800 dark:text-white">
-            Patients
-          </h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            Manage patient records and information.
-          </p>
+          <h1 className="text-2xl font-semibold text-slate-800 dark:text-white">Patients</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Manage patient records and information.</p>
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Search */}
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -123,7 +145,6 @@ export default function Patients() {
             "
           />
 
-          {/* Add Patient */}
           <button
             onClick={() => {
               setEditPatient(null);
@@ -144,12 +165,11 @@ export default function Patients() {
         </div>
       )}
 
-      {/* Loading */}
+      {/* Loading / Table */}
       {loading ? (
         <div className="py-12 text-center text-slate-500">Loading patients...</div>
       ) : (
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-card overflow-hidden">
-
           <table className="w-full text-sm">
             <thead className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
               <tr>
@@ -164,69 +184,62 @@ export default function Patients() {
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td
-                    colSpan="5"
-                    className="text-center py-10 text-slate-500 dark:text-slate-400"
-                  >
+                  <td colSpan="5" className="text-center py-10 text-slate-500 dark:text-slate-400">
                     No patients found.
                   </td>
                 </tr>
               ) : (
-                filtered.map((p) => (
-                  <tr
-                    key={p.id}
-                    className="border-t border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition"
-                  >
-                    <td className="px-4 py-3 flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center font-semibold">
-                        {p.name.charAt(0).toUpperCase()}
-                      </div>
-                      <div>
-                        <div className="font-medium text-slate-800 dark:text-white">
-                          {p.name}
+                filtered.map((p) => {
+                  const pid = normalizeId(p);
+                  const age = calculateAge(p.dob, p.age);
+
+                  return (
+                    <tr
+                      key={pid || Math.random()}
+                      className="border-t border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition"
+                    >
+                      <td className="px-4 py-3 flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center font-semibold">
+                          {String(p.name || " ").charAt(0).toUpperCase()}
                         </div>
-                        <div className="text-xs text-slate-500 dark:text-slate-400">
-                          {p.email || "—"}
+
+                        <div>
+                          <div className="font-medium text-slate-800 dark:text-white">{p.name}</div>
+                          <div className="text-xs text-slate-500 dark:text-slate-400">{p.email || "—"}</div>
                         </div>
-                      </div>
-                    </td>
+                      </td>
 
-                    <td className="px-4 py-3">
-                      {calculateAge(p.dob)}
-                    </td>
+                      <td className="px-4 py-3">{typeof age === "number" ? `${age}` : age}</td>
 
-                    <td className="px-4 py-3">{p.gender}</td>
+                      <td className="px-4 py-3">{p.gender || "—"}</td>
 
-                    <td className="px-4 py-3">{p.phone}</td>
+                      <td className="px-4 py-3">{p.phone || "—"}</td>
 
-                    <td className="px-4 py-3 text-center">
-                      <div className="flex items-center justify-center gap-3">
-                        {/* Edit */}
-                        <button
-                          onClick={() => openEdit(p)}
-                          className="p-2 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 transition"
-                          title="Edit"
-                        >
-                          <Pencil size={16} className="text-emerald-600" />
-                        </button>
+                      <td className="px-4 py-3 text-center">
+                        <div className="flex items-center justify-center gap-3">
+                          <button
+                            onClick={() => openEdit(p)}
+                            className="p-2 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                            title="Edit"
+                          >
+                            <Pencil size={16} className="text-emerald-600" />
+                          </button>
 
-                        {/* Delete */}
-                        <button
-                          onClick={() => handleDelete(p.id)}
-                          className="p-2 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 transition"
-                          title="Delete"
-                        >
-                          <Trash2 size={16} className="text-red-600" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                          <button
+                            onClick={() => handleDelete(pid)}
+                            className="p-2 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 transition"
+                            title="Delete"
+                          >
+                            <Trash2 size={16} className="text-red-600" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
-
           </table>
-
         </div>
       )}
 

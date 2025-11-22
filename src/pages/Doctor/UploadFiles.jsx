@@ -9,28 +9,45 @@ export default function UploadFiles({ patientId, onUploaded }) {
   const handleUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
     setUploading(true);
+
     try {
       const fd = new FormData();
       fd.append("file", file);
-      const res = await api.post(`/patients/${patientId}/files`, fd, {
+
+      // Correct backend route
+      const res = await api.post(`/api/patients/${patientId}/files`, fd, {
         headers: { "Content-Type": "multipart/form-data" },
+        withCredentials: true,
       });
-      toast.success("Uploaded");
-      onUploaded && onUploaded(res.data);
+
+      toast.success("File uploaded successfully");
+      if (onUploaded) onUploaded(res.data);
+
     } catch (err) {
-      console.error(err);
-      toast.error("Upload failed");
+      console.error("UPLOAD ERROR:", err);
+      toast.error(err?.response?.data?.error || "File upload failed");
     } finally {
       setUploading(false);
-      e.target.value = "";
+
+      // reset file input so same file can be re-uploaded if needed
+      if (e?.target) e.target.value = "";
     }
   };
 
   return (
-    <label className="inline-flex items-center gap-2 px-3 py-2 bg-slate-100 rounded cursor-pointer">
+    <label
+      className="
+        inline-flex items-center gap-2 
+        px-3 py-2 rounded cursor-pointer
+        bg-slate-100 dark:bg-slate-800
+        hover:bg-slate-200 dark:hover:bg-slate-700
+        transition
+      "
+    >
       <input type="file" className="hidden" onChange={handleUpload} />
-      {uploading ? "Uploading..." : "Upload file"}
+      {uploading ? "Uploading..." : "Upload File"}
     </label>
   );
 }

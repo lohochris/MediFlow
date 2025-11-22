@@ -42,7 +42,7 @@ const app = express();
 /* -----------------------------------------------------------
    SECURITY MIDDLEWARES
 ----------------------------------------------------------- */
-app.use(helmet()); // secure headers
+app.use(helmet());
 app.use(express.json({ limit: "2mb" }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
@@ -52,8 +52,8 @@ app.use(cookieParser());
 ----------------------------------------------------------- */
 app.use(
   cors({
-    origin: true, // allow any localhost + allowed origins
-    credentials: true, // allow cookies
+    origin: true,
+    credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
@@ -70,21 +70,21 @@ app.use(passport.initialize());
 connectDB(process.env.MONGO_URI);
 
 /* -----------------------------------------------------------
-   ROUTES — STRUCTURED & ORGANIZED
+   ROUTES — NOW USE A UNIFIED /api PREFIX
 ----------------------------------------------------------- */
 
 // AUTH
-app.use("/auth", authRoutes);
-app.use("/auth", googleAuthRoutes);
+app.use("/api/auth", authRoutes);
+app.use("/api/auth", googleAuthRoutes);
 
 // USERS & ROLES
-app.use("/users", userRoutes);
-app.use("/doctor", doctorRoutes);
+app.use("/api/users", userRoutes);
+app.use("/api/doctors", doctorRoutes);
 
 // CORE ENTITY ROUTES
-app.use("/departments", deptRoutes);
-app.use("/patients", patientsRoutes);
-app.use("/appointments", appointmentsRoutes);
+app.use("/api/departments", deptRoutes);
+app.use("/api/patients", patientsRoutes);
+app.use("/api/appointments", appointmentsRoutes);
 
 // NOTIFICATIONS
 app.use("/api/notifications", notificationRoutes);
@@ -92,14 +92,14 @@ app.use("/api/admin/notifications", adminNotificationRoutes);
 app.use("/api/notify", notifyRoutes);
 
 // ADMIN: ANALYTICS + REPORTING + EXPORT
-app.use("/api/admin", adminRoutes); // KPIs, performance, activity, trends
+app.use("/api/admin", adminRoutes); 
 app.use("/api/admin/reports", adminReportRoutes);
 app.use("/api/admin/export", adminExportRoutes);
 
 /* -----------------------------------------------------------
    HEALTH CHECK ENDPOINT
 ----------------------------------------------------------- */
-app.get("/health", (req, res) =>
+app.get("/api/health", (req, res) =>
   res.json({
     ok: true,
     service: "MediFlow Backend",

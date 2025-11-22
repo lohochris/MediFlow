@@ -1,3 +1,4 @@
+// src/components/patients/AddPatientModal.jsx
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import toast from "react-hot-toast";
@@ -9,14 +10,19 @@ export default function AddPatientModal({ open, onClose, onSave, existing }) {
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
 
+  /* ---------------------------------------------------------
+     Sync form when modal opens OR when editing changes
+  --------------------------------------------------------- */
   useEffect(() => {
-    if (open && existing) {
+    if (!open) return;
+
+    if (existing) {
       setName(existing.name || "");
       setDob(existing.dob ? existing.dob.substring(0, 10) : "");
       setGender(existing.gender || "Male");
       setPhone(existing.phone || "");
       setEmail(existing.email || "");
-    } else if (open) {
+    } else {
       setName("");
       setDob("");
       setGender("Male");
@@ -27,6 +33,9 @@ export default function AddPatientModal({ open, onClose, onSave, existing }) {
 
   if (!open) return null;
 
+  /* ---------------------------------------------------------
+     Submit Handler
+  --------------------------------------------------------- */
   const handleSubmit = (e) => {
     e.preventDefault();
 
@@ -35,16 +44,14 @@ export default function AddPatientModal({ open, onClose, onSave, existing }) {
       return;
     }
 
-    onSave({ 
-      name, 
-      dob, 
-      gender, 
-      phone, 
-      email 
+    // Pass clean payload upward
+    onSave({
+      name: name.trim(),
+      dob: dob.trim(),
+      gender,
+      phone: phone.trim(),
+      email: email.trim(),
     });
-
-    toast.success(existing ? "Patient updated!" : "Patient added!");
-    onClose();
   };
 
   return (
@@ -52,12 +59,14 @@ export default function AddPatientModal({ open, onClose, onSave, existing }) {
       <motion.div
         initial={{ opacity: 0, scale: 0.92 }}
         animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.92 }}
         transition={{ duration: 0.25 }}
         className="bg-white dark:bg-slate-900 w-full max-w-md p-6 rounded-2xl shadow-xl"
       >
         <h2 className="text-xl font-semibold mb-1 text-slate-800 dark:text-white">
           {existing ? "Edit Patient" : "Add New Patient"}
         </h2>
+
         <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
           {existing
             ? "Update the patient's information."
@@ -122,7 +131,7 @@ export default function AddPatientModal({ open, onClose, onSave, existing }) {
             />
           </div>
 
-          {/* Footer Buttons */}
+          {/* Footer */}
           <div className="flex justify-end gap-3 pt-4 mt-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-b-2xl p-4">
             <button
               type="button"

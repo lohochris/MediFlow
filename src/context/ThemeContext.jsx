@@ -15,16 +15,22 @@ export function ThemeProvider({ children }) {
     }
   });
 
+  // Apply theme to <html> root
   useEffect(() => {
+    const root = document.documentElement;
+
+    // Reset both classes to avoid conflict
+    root.classList.remove("light", "dark");
+
+    // Apply new theme
+    root.classList.add(theme);
+
+    // Save preference
     localStorage.setItem("mediflow_theme", theme);
-    if (theme === "dark") {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-    }
   }, [theme]);
 
-  const toggle = () => setTheme((t) => (t === "dark" ? "light" : "dark"));
+  const toggle = () =>
+    setTheme((t) => (t === "dark" ? "light" : "dark"));
 
   return (
     <ThemeContext.Provider value={{ theme, toggle }}>

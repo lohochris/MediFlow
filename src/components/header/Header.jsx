@@ -1,22 +1,36 @@
 // src/components/header/Header.jsx
 
-import React, { useContext, useEffect, useState } from "react";
+import React, { useContext, useEffect, useState, useRef } from "react";
 import { Bell, ChevronDown, Sun, Moon } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { ThemeContext } from "../../context/ThemeContext";
-
 import { useAuth } from "../../context/AuthContext";
 
 export default function Header({ onAddPatient }) {
   const navigate = useNavigate();
   const { theme, toggle } = useContext(ThemeContext);
 
-  // 🔥 Use global auth state ONLY
   const { user, reloadUser, logout } = useAuth();
 
   const [menuOpen, setMenuOpen] = useState(false);
 
-  // Load fresh user on mount
+  // 🔔 Notification dropdown state
+  const [showNotifications, setShowNotifications] = useState(false);
+  const notifRef = useRef(null);
+
+  // Close notification dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (notifRef.current && !notifRef.current.contains(e.target)) {
+        setShowNotifications(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Load user on mount
   useEffect(() => {
     reloadUser();
   }, []);
@@ -55,9 +69,30 @@ export default function Header({ onAddPatient }) {
         </button>
 
         {/* Notifications */}
-        <div className="relative hover:bg-slate-100 dark:hover:bg-slate-700 p-2 rounded-full cursor-pointer">
-          <Bell size={18} className="text-slate-600 dark:text-slate-300" />
-          <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full"></span>
+        <div ref={notifRef} className="relative">
+          <button
+            onClick={() => setShowNotifications((prev) => !prev)}
+            className="relative p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition"
+          >
+            <Bell size={18} className="text-slate-600 dark:text-slate-300" />
+
+            {/* Red Dot */}
+            <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full"></span>
+          </button>
+
+          {showNotifications && (
+            <div className="absolute right-0 mt-3 w-72 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-card py-3 z-40 animate-fadeIn">
+              <p className="text-sm font-semibold px-3 pb-2 text-slate-700 dark:text-slate-200">
+                Notifications
+              </p>
+
+              <div className="border-t border-slate-200 dark:border-slate-700 my-2"></div>
+
+              <div className="px-3 py-2 text-sm text-slate-500 dark:text-slate-400">
+                No new notifications
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Add patient */}

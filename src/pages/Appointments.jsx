@@ -1,3 +1,4 @@
+// src/pages/Appointments.jsx
 import React, { useState, useEffect, useMemo } from "react";
 import { CalendarPlus, Pencil, Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
@@ -18,12 +19,16 @@ export default function Appointments() {
   const [editAppt, setEditAppt] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  /* ---------------------------
+      LOAD APPOINTMENTS
+  ------------------------------ */
   const loadData = async () => {
     try {
       setLoading(true);
       const data = await getAllAppointments();
       setAppointments(Array.isArray(data) ? data : []);
     } catch (err) {
+      console.error(err);
       toast.error("Failed to load appointments");
     } finally {
       setLoading(false);
@@ -34,14 +39,17 @@ export default function Appointments() {
     loadData();
   }, []);
 
+  /* ---------------------------
+      SEARCH FILTER
+  ------------------------------ */
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return appointments;
 
     return appointments.filter((a) => {
-      const name = a.patient?.name?.toLowerCase() || "";
+      const patientName = a.patient?.name?.toLowerCase() || "";
       return (
-        name.includes(q) ||
+        patientName.includes(q) ||
         (a.type || "").toLowerCase().includes(q) ||
         (a.date || "").toLowerCase().includes(q) ||
         (a.time || "").toLowerCase().includes(q)
@@ -49,7 +57,11 @@ export default function Appointments() {
     });
   }, [appointments, query]);
 
+  /* ---------------------------
+      STATUS BADGE
+  ------------------------------ */
   const getStatus = (date, time) => {
+    if (!date || !time) return "Upcoming";
     const apptDateTime = new Date(`${date}T${time}`);
     return apptDateTime < new Date() ? "Completed" : "Upcoming";
   };
@@ -67,20 +79,30 @@ export default function Appointments() {
     Surgery: "bg-purple-100 text-purple-700",
   };
 
-  /* -----------------------------------------
-     FIXED: Always send backend the correct key
-  ----------------------------------------- */
+  /* ---------------------------
+      CREATE / UPDATE
+  ------------------------------ */
   const handleSave = async (form) => {
     try {
       const payload = {
-        patientId: form.patient || form.patientId,
+        patientId:
+          form.patientId ||
+          form.patient?._id ||
+          form.patient?.id ||
+          form.patient ||
+          null,
         date: form.date,
         time: form.time,
         type: form.type,
       };
 
+      if (!payload.patientId) {
+        toast.error("Patient is required");
+        return;
+      }
+
       if (editAppt) {
-        await updateAppointment(editAppt.id, payload);
+        await updateAppointment(editAppt._id || editAppt.id, payload);
         toast.success("Appointment updated");
       } else {
         await createAppointment(payload);
@@ -89,15 +111,18 @@ export default function Appointments() {
 
       setModalOpen(false);
       setEditAppt(null);
-      await loadData();
+      loadData();
     } catch (err) {
       console.error("SAVE ERROR:", err);
-      toast.error("Error saving appointment");
+      toast.error(err?.response?.data?.error || "Error saving appointment");
     }
   };
 
+  /* ---------------------------
+      DELETE
+  ------------------------------ */
   const handleDelete = async (id) => {
-    if (!confirm("Delete appointment?")) return;
+    if (!confirm("Delete this appointment?")) return;
 
     try {
       await deleteAppointment(id);
@@ -108,13 +133,35 @@ export default function Appointments() {
     }
   };
 
+  /* ---------------------------
+      EDIT MODAL
+  ------------------------------ */
   const openEdit = (appt) => {
     setEditAppt(appt);
     setModalOpen(true);
   };
 
+  /* -----------------------------------------------
+      UNIQUE PATIENT LIST FOR APPOINTMENT MODAL
+     ----------------------------------------------- */
+  const uniquePatients = [
+    ...new Map(
+      appointments
+        .filter((a) => a.patient && (a.patient._id || a.patient.id))
+        .map((a) => {
+          const p = a.patient;
+          return [p._id || p.id, p];
+        })
+    ).values(),
+  ];
+
+  /* ---------------------------
+      UI RENDER
+  ------------------------------ */
+
   return (
     <div className="p-6">
+      {/* HEADER */}
       <div className="flex items-start justify-between mb-6">
         <div>
           <h1 className="text-2xl font-semibold text-slate-800 dark:text-white">
@@ -145,6 +192,7 @@ export default function Appointments() {
         </div>
       </div>
 
+      {/* TABLE */}
       {loading ? (
         <div className="py-12 text-center text-slate-500">
           Loading appointments...
@@ -171,61 +219,68 @@ export default function Appointments() {
                   </td>
                 </tr>
               ) : (
-                filtered.map((a) => (
-                  <tr
-                    key={a.id}
-                    className="border-t hover:bg-slate-50 dark:hover:bg-slate-800/40"
-                  >
-                    <td className="px-4 py-3">{a.patient?.name || "Unknown"}</td>
-                    <td className="px-4 py-3">{a.date}</td>
-                    <td className="px-4 py-3">{a.time}</td>
+                filtered.map((a) => {
+                  const id = a._id || a.id;
 
-                    <td className="px-4 py-3">
-                      <span
-                        className={`px-2 py-1 rounded-md text-xs font-medium ${
-                          typeColors[a.type] || "bg-slate-200 text-slate-700"
-                        }`}
-                      >
-                        {a.type}
-                      </span>
-                    </td>
+                  return (
+                    <tr
+                      key={id}
+                      className="border-t hover:bg-slate-50 dark:hover:bg-slate-800/40"
+                    >
+                      <td className="px-4 py-3">
+                        {a.patient?.name || "Unknown"}
+                      </td>
+                      <td className="px-4 py-3">{a.date}</td>
+                      <td className="px-4 py-3">{a.time}</td>
 
-                    <td className="px-4 py-3">
-                      <span
-                        className={`px-2 py-1 rounded-md text-xs font-medium ${
-                          statusStyles[getStatus(a.date, a.time)]
-                        }`}
-                      >
-                        {getStatus(a.date, a.time)}
-                      </span>
-                    </td>
-
-                    <td className="px-4 py-3 text-center">
-                      <div className="flex justify-center gap-3">
-                        <button
-                          onClick={() => openEdit(a)}
-                          className="p-2 rounded-md hover:bg-slate-100"
+                      <td className="px-4 py-3">
+                        <span
+                          className={`px-2 py-1 rounded-md text-xs font-medium ${
+                            typeColors[a.type] ||
+                            "bg-slate-200 text-slate-700"
+                          }`}
                         >
-                          <Pencil size={16} className="text-emerald-600" />
-                        </button>
+                          {a.type}
+                        </span>
+                      </td>
 
-                        <button
-                          onClick={() => handleDelete(a.id)}
-                          className="p-2 rounded-md hover:bg-red-50"
+                      <td className="px-4 py-3">
+                        <span
+                          className={`px-2 py-1 rounded-md text-xs font-medium ${
+                            statusStyles[getStatus(a.date, a.time)]
+                          }`}
                         >
-                          <Trash2 size={16} className="text-red-600" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                          {getStatus(a.date, a.time)}
+                        </span>
+                      </td>
+
+                      <td className="px-4 py-3 text-center">
+                        <div className="flex justify-center gap-3">
+                          <button
+                            onClick={() => openEdit(a)}
+                            className="p-2 rounded-md hover:bg-slate-100"
+                          >
+                            <Pencil size={16} className="text-emerald-600" />
+                          </button>
+
+                          <button
+                            onClick={() => handleDelete(id)}
+                            className="p-2 rounded-md hover:bg-red-50"
+                          >
+                            <Trash2 size={16} className="text-red-600" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
         </div>
       )}
 
-      {/* Modal — now receives unique patients list */}
+      {/* MODAL */}
       <AppointmentModal
         open={modalOpen}
         onClose={() => {
@@ -234,14 +289,7 @@ export default function Appointments() {
         }}
         onSave={handleSave}
         editData={editAppt}
-        patients={[
-          ...new Map(
-            appointments
-              .map((a) => a.patient)
-              .filter((p) => p && p.id)
-              .map((p) => [p.id, p])
-          ).values() // unique patients
-        ]}
+        patients={uniquePatients}
       />
     </div>
   );

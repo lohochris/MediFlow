@@ -2,68 +2,120 @@
 import api from "../api/api";
 
 /* ============================================================
-   CREATE APPOINTMENT
-   Works for both PUBLIC and ADMIN
-   Backend expects: patientId, date, time, type
+   NORMALIZER – ensure consistent shape for frontend components
 ============================================================ */
-export const createAppointment = async (payload) => {
-  const res = await api.post("/appointments", {
-    patientId: payload.patientId || payload.patient, // unified field
-    date: payload.date,
-    time: payload.time,
-    type: payload.type,
-    doctorId: payload.doctorId || null,  // optional
-  });
+const normalize = (appt) => {
+  if (!appt) return {};
 
-  return res.data;
+  return {
+    ...appt,
+    id: appt.id || appt._id,
+
+    patient: appt.patient
+      ? {
+          ...appt.patient,
+          id: appt.patient.id || appt.patient._id,
+        }
+      : null,
+
+    doctor: appt.doctor
+      ? {
+          ...appt.doctor,
+          id: appt.doctor.id || appt.doctor._id,
+        }
+      : null,
+  };
 };
 
 /* ============================================================
-   GET ALL APPOINTMENTS (Admin)
+   CREATE APPOINTMENT → POST /api/appointments
+============================================================ */
+export const createAppointment = async (payload) => {
+  try {
+    const res = await api.post("/api/appointments", {
+      patientId: payload.patientId || payload.patient,
+      date: payload.date,
+      time: payload.time,
+      type: payload.type,
+      doctorId: payload.doctorId || null,
+    });
+
+    return normalize(res.data);
+  } catch (err) {
+    throw new Error(err.response?.data?.error || "Failed to create appointment");
+  }
+};
+
+/* ============================================================
+   GET ALL APPOINTMENTS → GET /api/appointments
 ============================================================ */
 export const getAppointments = async () => {
-  const res = await api.get("/appointments");
-  return res.data;
+  try {
+    const res = await api.get("/api/appointments");
+
+    return Array.isArray(res.data)
+      ? res.data.map((a) => normalize(a))
+      : [];
+  } catch (err) {
+    throw new Error("Failed to load appointments");
+  }
 };
 
 export const getAllAppointments = getAppointments;
 
 /* ============================================================
-   GET DOCTOR APPOINTMENTS (Doctor only)
+   GET DOCTOR TODAY APPOINTMENTS → GET /api/doctor/appointments/today
 ============================================================ */
 export const getDoctorAppointments = async () => {
-  const res = await api.get("/appointments/my");
-  return res.data;
+  try {
+    const res = await api.get("/api/doctor/appointments/today");
+
+    return Array.isArray(res.data)
+      ? res.data.map((a) => normalize(a))
+      : [];
+  } catch (err) {
+    throw new Error("Failed to load doctor appointments");
+  }
 };
 
 /* ============================================================
-   UPDATE APPOINTMENT
-   Accepts patientId or patient (normalized)
+   UPDATE APPOINTMENT → PUT /api/appointments/:id
 ============================================================ */
 export const updateAppointment = async (id, payload) => {
-  const res = await api.put(`/appointments/${id}`, {
-    patientId: payload.patientId || payload.patient, // unified
-    date: payload.date,
-    time: payload.time,
-    type: payload.type,
-    doctorId: payload.doctorId || null,
-  });
+  try {
+    const res = await api.put(`/api/appointments/${id}`, {
+      ...payload,
+      patientId: payload.patientId || payload.patient,
+      doctorId: payload.doctorId || payload.doctor,
+    });
 
-  return res.data;
+    return normalize(res.data);
+  } catch (err) {
+    throw new Error("Failed to update appointment");
+  }
 };
 
 /* ============================================================
-   UPDATE STATUS: pending / completed / cancelled
+   UPDATE STATUS ONLY → PUT /api/appointments/:id
 ============================================================ */
 export const updateAppointmentStatus = async (id, status) => {
-  const res = await api.put(`/appointments/${id}/status`, { status });
-  return res.data;
+  try {
+    const res = await api.put(`/api/appointments/${id}`, { status });
+
+    return normalize(res.data);
+  } catch (err) {
+    throw new Error("Failed to update status");
+  }
 };
 
 /* ============================================================
-   DELETE APPOINTMENT
+   DELETE APPOINTMENT → DELETE /api/appointments/:id
 ============================================================ */
 export const deleteAppointment = async (id) => {
-  const res = await api.delete(`/appointments/${id}`);
-  return res.data;
+  try {
+    const res = await api.delete(`/api/appointments/${id}`);
+    return res.data;
+  } catch (err) {
+    throw new Error("Failed to delete appointment");
+  }
 };

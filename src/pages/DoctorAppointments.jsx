@@ -1,6 +1,7 @@
+// src/pages/Doctor/DoctorAppointments.jsx
 import React, { useEffect, useState, useMemo } from "react";
 import toast from "react-hot-toast";
-import { CalendarDays, CheckCircle, XCircle } from "lucide-react";
+import { CheckCircle, XCircle } from "lucide-react";
 
 import {
   getDoctorAppointments,
@@ -12,26 +13,29 @@ export default function DoctorAppointments() {
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
 
-  const loadData = async () => {
+  /* -------------------------------------------
+     Load appointments assigned to this doctor
+  --------------------------------------------*/
+  const loadAppointments = async () => {
     try {
       setLoading(true);
 
-      const apptData = await getDoctorAppointments();
-      setAppointments(Array.isArray(apptData) ? apptData : []);
+      const data = await getDoctorAppointments();
+      setAppointments(Array.isArray(data) ? data : []);
     } catch (err) {
-      console.error(err);
-      toast.error("Failed to load appointments");
+      console.error("Loading error:", err);
+      toast.error("Failed to load doctor appointments");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadData();
+    loadAppointments();
   }, []);
 
   /* -------------------------------------------
-     Filter Appointments
+     Search Filter
   --------------------------------------------*/
   const filtered = useMemo(() => {
     const q = query.toLowerCase().trim();
@@ -41,24 +45,24 @@ export default function DoctorAppointments() {
       const patientName = a.patient?.name?.toLowerCase() || "";
       return (
         patientName.includes(q) ||
-        a.type.toLowerCase().includes(q) ||
-        a.date.includes(q) ||
-        a.time.includes(q)
+        (a.type || "").toLowerCase().includes(q) ||
+        (a.date || "").toLowerCase().includes(q) ||
+        (a.time || "").toLowerCase().includes(q)
       );
     });
   }, [appointments, query]);
 
   /* -------------------------------------------
-     Update Appointment Status
+     Update Status
   --------------------------------------------*/
-  const updateStatus = async (id, status) => {
+  const changeStatus = async (id, status) => {
     try {
       await updateAppointmentStatus(id, status);
       toast.success("Status updated");
-      loadData();
+      loadAppointments();
     } catch (err) {
-      console.error(err);
-      toast.error("Failed to update status");
+      console.error("Update status error:", err);
+      toast.error("Failed to update appointment");
     }
   };
 
@@ -70,30 +74,32 @@ export default function DoctorAppointments() {
 
   return (
     <div className="p-6">
-      <div className="flex items-start justify-between mb-6">
+      {/* HEADER */}
+      <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-semibold text-slate-800 dark:text-white">
             My Appointments
           </h1>
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            Appointments assigned to you as a doctor.
+            View and manage appointments assigned to you.
           </p>
         </div>
 
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search patient, type, or date..."
-          className="hidden md:block w-80 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2"
+          placeholder="Search..."
+          className="hidden md:block w-72 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2"
         />
       </div>
 
+      {/* TABLE */}
       {loading ? (
-        <div className="py-12 text-center text-slate-500">
-          Loading appointments...
+        <div className="py-10 text-center text-slate-500">
+          Loading appointments…
         </div>
       ) : (
-        <div className="bg-white dark:bg-slate-900 border rounded-xl shadow-card overflow-hidden">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-slate-100 dark:bg-slate-800">
               <tr>
@@ -109,54 +115,63 @@ export default function DoctorAppointments() {
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan="6" className="py-10 text-center">
+                  <td className="text-center py-10 text-slate-500" colSpan="6">
                     No appointments found.
                   </td>
                 </tr>
               ) : (
-                filtered.map((a) => (
-                  <tr
-                    key={a.id}
-                    className="border-t hover:bg-slate-50 dark:hover:bg-slate-800/40"
-                  >
-                    <td className="px-4 py-3">{a.patient?.name || "Unknown"}</td>
-                    <td className="px-4 py-3">{a.date}</td>
-                    <td className="px-4 py-3">{a.time}</td>
-                    <td className="px-4 py-3">{a.type}</td>
+                filtered.map((appt) => {
+                  const id = appt.id || appt._id;
 
-                    <td className="px-4 py-3">
-                      <span
-                        className={`px-2 py-1 rounded-md text-xs font-medium ${
-                          statusColors[a.status]
-                        }`}
-                      >
-                        {a.status.charAt(0).toUpperCase() +
-                          a.status.slice(1)}
-                      </span>
-                    </td>
+                  return (
+                    <tr
+                      key={id}
+                      className="border-t hover:bg-slate-50 dark:hover:bg-slate-800/40"
+                    >
+                      <td className="px-4 py-3">{appt.patient?.name || "—"}</td>
+                      <td className="px-4 py-3">{appt.date}</td>
+                      <td className="px-4 py-3">{appt.time}</td>
+                      <td className="px-4 py-3">{appt.type}</td>
 
-                    <td className="px-4 py-3 text-center">
-                      <div className="flex justify-center gap-3">
-                        <button
-                          onClick={() => updateStatus(a.id, "completed")}
-                          className="p-2 rounded-md hover:bg-slate-100"
+                      <td className="px-4 py-3">
+                        <span
+                          className={`px-2 py-1 rounded-md text-xs font-medium ${
+                            statusColors[appt.status] ||
+                            "bg-slate-200 text-slate-700"
+                          }`}
                         >
-                          <CheckCircle
-                            className="text-emerald-600"
-                            size={18}
-                          />
-                        </button>
+                          {appt.status
+                            ? appt.status.charAt(0).toUpperCase() +
+                              appt.status.slice(1)
+                            : "—"}
+                        </span>
+                      </td>
 
-                        <button
-                          onClick={() => updateStatus(a.id, "cancelled")}
-                          className="p-2 rounded-md hover:bg-red-50"
-                        >
-                          <XCircle className="text-red-600" size={18} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                      <td className="px-4 py-3 text-center">
+                        <div className="flex justify-center gap-3">
+                          {/* Mark Completed */}
+                          <button
+                            onClick={() => changeStatus(id, "completed")}
+                            className="p-2 rounded-md hover:bg-slate-100 dark:hover:bg-slate-700"
+                          >
+                            <CheckCircle
+                              size={18}
+                              className="text-emerald-600"
+                            />
+                          </button>
+
+                          {/* Cancel */}
+                          <button
+                            onClick={() => changeStatus(id, "cancelled")}
+                            className="p-2 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20"
+                          >
+                            <XCircle size={18} className="text-red-600" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

@@ -1,89 +1,139 @@
 // src/services/authService.js
+
+/**
+ * Auth service — client-side helpers for login / logout / refresh token handling
+ * - Uses the central `api` axios instance (../api/api)
+ * - Unified user object stored under "mediflow-user"
+ */
+
 import api from "../api/api";
 
-// ---------------------------------------------
-// LOCAL STORAGE HELPERS
-// ---------------------------------------------
 const USER_KEY = "mediflow-user";
 
+/* -------------------------
+   Local storage helpers
+   ------------------------- */
 export function saveUser(user) {
   if (!user) return;
-  localStorage.setItem(USER_KEY, JSON.stringify(user));
+  try {
+    localStorage.setItem(USER_KEY, JSON.stringify(user));
+  } catch (e) {
+    console.warn("saveUser failed:", e);
+  }
 }
 
 export function clearUser() {
-  localStorage.removeItem(USER_KEY);
+  try {
+    localStorage.removeItem(USER_KEY);
+  } catch (e) {
+    console.warn("clearUser failed:", e);
+  }
 }
 
 export function getCurrentUser() {
   try {
-    return JSON.parse(localStorage.getItem(USER_KEY));
+    const raw = localStorage.getItem(USER_KEY);
+    return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
   }
 }
 
-// ---------------------------------------------
-// LOGIN (email + password)
-// Returns a unified user object: { ...user, accessToken }
-// ---------------------------------------------
+/* -------------------------
+   Helper: format server error
+   ------------------------- */
+const formatError = (err) => {
+  if (!err) return new Error("Unknown error");
+  if (err.response?.data?.error) return new Error(err.response.data.error);
+  if (err.response?.data?.message) return new Error(err.response.data.message);
+  if (err.message) return new Error(err.message);
+  return new Error("Request failed");
+};
+
+/* -------------------------
+   LOGIN - email + password
+   ------------------------- */
 export async function loginUser(email, password) {
-  const res = await api.post("/auth/login", { email, password });
+  if (!email || !password) throw new Error("Email and password are required");
 
-  const fullUser = {
-    ...res.data.user,
-    accessToken: res.data.accessToken,
-  };
+  try {
+    const res = await api.post("/api/auth/login", { email, password });
+    const fetchedUser = res.data?.user || null;
+    const accessToken = res.data?.accessToken || null;
 
-  saveUser(fullUser);
+    if (!fetchedUser) {
+      throw new Error("Login response missing user");
+    }
 
-  return fullUser; // 🔥 this fixes RBAC routing
+    const fullUser = { ...fetchedUser, accessToken };
+    saveUser(fullUser);
+
+    return fullUser;
+  } catch (err) {
+    throw formatError(err);
+  }
 }
 
-// ---------------------------------------------
-// REGISTER
-// ---------------------------------------------
+/* -------------------------
+   REGISTER
+   ------------------------- */
 export async function registerUser(name, email, password) {
-  const res = await api.post("/auth/register", { name, email, password });
-  return res.data;
+  if (!name || !email || !password)
+    throw new Error("Name, email and password are required");
+
+  try {
+    const res = await api.post("/api/auth/register", {
+      name,
+      email,
+      password,
+    });
+    return res.data;
+  } catch (err) {
+    throw formatError(err);
+  }
 }
 
-// ---------------------------------------------
-// LOGOUT
-// ---------------------------------------------
+/* -------------------------
+   LOGOUT
+   ------------------------- */
 export async function logoutUser() {
   try {
-    await api.post("/auth/logout");
-  } catch {}
-  clearUser();
+    await api.post("/api/auth/logout");
+  } catch (err) {
+    console.warn("logoutUser: server logout failed", err?.message || err);
+  } finally {
+    clearUser();
+  }
 }
 
-// ---------------------------------------------
-// FETCH CURRENT USER (GET /users/me)
-// Backend sends full profile (role, dept, etc.)
-// We merge it with stored accessToken only.
-// ---------------------------------------------
+/* -------------------------
+   FETCH CURRENT USER
+   ------------------------- */
 export async function fetchCurrentUser() {
   try {
-    const profile = await api.get("/users/me");
-    const stored = getCurrentUser();
+    const res = await api.get("/api/users/me");
+    const profile = res.data;
 
+    const stored = getCurrentUser();
     const merged = {
-      ...profile.data,          // backend role, email, name, department
-      accessToken: stored?.accessToken, // keep token
+      ...profile,
+      accessToken: stored?.accessToken || null,
     };
 
     saveUser(merged);
     return merged;
-  } catch {
+  } catch (err) {
+    console.warn("fetchCurrentUser failed:", err?.message || err);
     return null;
   }
 }
 
-// ---------------------------------------------
-// SAVE NEW TOKEN FROM REFRESH MIDDLEWARE
-// ---------------------------------------------
+/* -------------------------
+   SAVE REFRESHED TOKEN
+   ------------------------- */
 export function saveRefreshedUser(newAccessToken) {
+  if (!newAccessToken) return;
+
   const existing = getCurrentUser();
   if (!existing) return;
 
@@ -95,19 +145,27 @@ export function saveRefreshedUser(newAccessToken) {
   saveUser(merged);
 }
 
-// ---------------------------------------------
-// GOOGLE LOGIN SUPPORT
-// ---------------------------------------------
+/* -------------------------
+   GOOGLE LOGIN
+   ------------------------- */
 export function saveGoogleLogin(accessToken, user) {
-  const merged = {
-    ...user,
-    accessToken,
-  };
+  if (!accessToken || !user) return null;
 
+  const merged = { ...user, accessToken };
   saveUser(merged);
+
   return merged;
 }
 
 export function loginWithGoogle() {
-  window.location.href = "http://localhost:5000/auth/google";
+  // Redirect to backend Google OAuth entrypoint
+  window.location.href = "/api/auth/google";
+}
+
+/* -------------------------
+   AUTH CHECK
+   ------------------------- */
+export function isAuthenticated() {
+  const u = getCurrentUser();
+  return !!(u && u.accessToken);
 }

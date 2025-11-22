@@ -1,12 +1,13 @@
+// src/pages/Dashboard.jsx
 import { getCurrentUser } from "../services/authService";
 import React, { useEffect, useMemo, useState } from "react";
-import { Users, Calendar, Activity, TrendingUp } from "lucide-react";
+import { Users, Calendar, Activity, TrendingUp, Plus } from "lucide-react";
 import { motion } from "framer-motion";
 import toast from "react-hot-toast";
 
 // FIXED IMPORTS
-import { getAllPatients } from "../services/patientService";
-import { getAppointments } from "../services/appointmentService";
+import { getAllPatients, createPatient } from "../services/patientService";
+import { getAllAppointments } from "../services/appointmentService";
 
 import {
   ResponsiveContainer,
@@ -22,14 +23,27 @@ export default function Dashboard() {
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // FIXED: Load data using correct functions
+  // Modal visibility
+  const [showAddModal, setShowAddModal] = useState(false);
+
+  // Add Patient Form State
+  const [form, setForm] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    gender: "",
+    dob: "",
+    condition: "",
+  });
+
+  // LOAD DATA
   const load = async () => {
     try {
       setLoading(true);
 
       const [p, a] = await Promise.all([
         getAllPatients(),
-        getAppointments(), // FIXED
+        getAllAppointments(),
       ]);
 
       setPatients(Array.isArray(p) ? p : []);
@@ -45,11 +59,35 @@ export default function Dashboard() {
     load();
   }, []);
 
-  // Utility: month label
+  // Submit Add Patient
+  const handleAddPatient = async (e) => {
+    e.preventDefault();
+    try {
+      const newP = await createPatient(form);
+      toast.success("Patient added successfully!");
+
+      setShowAddModal(false);
+      setForm({
+        name: "",
+        email: "",
+        phone: "",
+        gender: "",
+        dob: "",
+        condition: "",
+      });
+
+      setPatients((prev) => [newP, ...prev]);
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to add patient");
+    }
+  };
+
+  // Month label
   const monthLabel = (year, monthIndex) =>
     new Date(year, monthIndex, 1).toLocaleString("default", { month: "short" });
 
-  // Generate last 6 months
+  // Last 6 months
   const lastSixMonths = useMemo(() => {
     const arr = [];
     const now = new Date();
@@ -60,7 +98,7 @@ export default function Dashboard() {
     return arr;
   }, []);
 
-  // Aggregate monthly appointment counts
+  // Monthly appointment counts
   const monthlyData = useMemo(() => {
     const counts = lastSixMonths.map(() => 0);
 
@@ -68,6 +106,7 @@ export default function Dashboard() {
       if (!a?.date) return;
       const dt = new Date(a.date);
       if (isNaN(dt)) return;
+
       lastSixMonths.forEach((m, idx) => {
         if (dt.getFullYear() === m.year && dt.getMonth() === m.month) {
           counts[idx]++;
@@ -84,16 +123,15 @@ export default function Dashboard() {
   const totalPatients = patients.length;
   const totalAppointments = appointments.length;
 
-  // Calculate growth %
   const growth = useMemo(() => {
     const vals = monthlyData.map((d) => d.value);
     const last = vals.at(-1) ?? 0;
     const prev = vals.at(-2) ?? 0;
+
     if (prev === 0) return last > 0 ? 100 : 0;
     return Math.round(((last - prev) / prev) * 100);
   }, [monthlyData]);
 
-  // Recent patients (last 5)
   const recentPatients = useMemo(() => {
     const sorted = [...patients].sort((a, b) =>
       a.createdAt && b.createdAt
@@ -103,7 +141,6 @@ export default function Dashboard() {
     return sorted.slice(0, 5);
   }, [patients]);
 
-  // Upcoming appointments (next 6)
   const upcoming = useMemo(() => {
     const now = new Date();
     return appointments
@@ -116,29 +153,116 @@ export default function Dashboard() {
       .slice(0, 6);
   }, [appointments]);
 
-  // Skeleton loader card
   const SkeletonCard = () => (
     <div className="animate-pulse bg-white dark:bg-slate-800 rounded-xl p-5 shadow-card h-28"></div>
   );
 
   return (
     <div className="p-6 space-y-6">
-      {/* Replaces existing TITLE section */}
-<div className="relative rounded-2xl overflow-hidden">
-  <div className="bg-gradient-to-r from-emerald-600 to-sky-500 text-white p-6 rounded-2xl">
-    <div className="flex items-center justify-between gap-4">
-      <div>
-        <h1 className="text-2xl font-bold">Welcome back, {getCurrentUser()?.name || "Clinician"}</h1>
-        <p className="text-sm opacity-90 mt-1">Here’s what’s happening at your clinic today.</p>
-      </div>
-      <div className="text-right">
-        <div className="text-sm">Today</div>
-        <div className="font-semibold">{new Date().toLocaleDateString()}</div>
-      </div>
-    </div>
-  </div>
-</div>
 
+      {/* ---------------------- ADD PATIENT MODAL ---------------------- */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-xl w-full max-w-md">
+
+            <h2 className="text-xl font-semibold mb-4">Add New Patient</h2>
+
+            <form onSubmit={handleAddPatient} className="space-y-4">
+
+              <input
+                type="text"
+                placeholder="Full Name"
+                className="w-full p-2 border rounded"
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                required
+              />
+
+              <input
+                type="email"
+                placeholder="Email"
+                className="w-full p-2 border rounded"
+                value={form.email}
+                onChange={(e) => setForm({ ...form, email: e.target.value })}
+              />
+
+              <input
+                type="text"
+                placeholder="Phone"
+                className="w-full p-2 border rounded"
+                value={form.phone}
+                onChange={(e) => setForm({ ...form, phone: e.target.value })}
+              />
+
+              <select
+                className="w-full p-2 border rounded"
+                value={form.gender}
+                onChange={(e) => setForm({ ...form, gender: e.target.value })}
+                required
+              >
+                <option value="">Select Gender</option>
+                <option>Male</option>
+                <option>Female</option>
+              </select>
+
+              <input
+                type="date"
+                className="w-full p-2 border rounded"
+                value={form.dob}
+                onChange={(e) => setForm({ ...form, dob: e.target.value })}
+                required
+              />
+
+              <input
+                type="text"
+                placeholder="Condition"
+                className="w-full p-2 border rounded"
+                value={form.condition}
+                onChange={(e) => setForm({ ...form, condition: e.target.value })}
+              />
+
+              <div className="flex justify-end gap-3 mt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowAddModal(false)}
+                  className="px-4 py-2 border rounded"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-emerald-600 text-white rounded"
+                >
+                  Save Patient
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* HEADER */}
+      <div className="relative rounded-2xl overflow-hidden">
+        <div className="bg-gradient-to-r from-emerald-600 to-sky-500 text-white p-6 rounded-2xl">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-bold">
+                Welcome back, {getCurrentUser()?.name || "Clinician"}
+              </h1>
+              <p className="text-sm opacity-90 mt-1">
+                Here’s what’s happening at your clinic today.
+              </p>
+            </div>
+            <div className="text-right">
+              <div className="text-sm">Today</div>
+              <div className="font-semibold">
+                {new Date().toLocaleDateString()}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* STAT CARDS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
@@ -152,11 +276,7 @@ export default function Dashboard() {
         ) : (
           <>
             {/* Patients */}
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-white dark:bg-slate-900 border rounded-xl p-5 shadow-card"
-            >
+            <motion.div className="bg-white dark:bg-slate-900 border rounded-xl p-5 shadow-card">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-slate-500">Total Patients</p>
@@ -171,12 +291,7 @@ export default function Dashboard() {
             </motion.div>
 
             {/* Appointments */}
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.05 }}
-              className="bg-white dark:bg-slate-900 border rounded-xl p-5 shadow-card"
-            >
+            <motion.div className="bg-white dark:bg-slate-900 border rounded-xl p-5 shadow-card">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-slate-500">Appointments</p>
@@ -191,12 +306,7 @@ export default function Dashboard() {
             </motion.div>
 
             {/* This Month */}
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-              className="bg-white dark:bg-slate-900 border rounded-xl p-5 shadow-card"
-            >
+            <motion.div className="bg-white dark:bg-slate-900 border rounded-xl p-5 shadow-card">
               <div className="flex justify-between items-center">
                 <div>
                   <p className="text-sm text-slate-500">This Month</p>
@@ -208,6 +318,7 @@ export default function Dashboard() {
                   <TrendingUp size={22} />
                 </div>
               </div>
+
               <div className="mt-3 text-xs text-slate-500">
                 {growth >= 0 ? (
                   <span className="text-emerald-600">
@@ -222,12 +333,7 @@ export default function Dashboard() {
             </motion.div>
 
             {/* Alerts */}
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.15 }}
-              className="bg-white dark:bg-slate-900 border rounded-xl p-5 shadow-card"
-            >
+            <motion.div className="bg-white dark:bg-slate-900 border rounded-xl p-5 shadow-card">
               <div className="flex justify-between items-center">
                 <div>
                   <p className="text-sm text-slate-500">Active Alerts</p>
@@ -243,91 +349,57 @@ export default function Dashboard() {
       </div>
 
       {/* QUICK ACTIONS */}
-      {/* QUICK ACTIONS */}
-<motion.div
-  initial={{ opacity: 0, y: 10 }}
-  animate={{ opacity: 1, y: 0 }}
-  transition={{ delay: 0.15 }}
-  className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-6 rounded-xl shadow-card"
->
-  <h3 className="text-lg font-semibold text-slate-800 dark:text-white mb-4">
-    Quick Actions
-  </h3>
+      <motion.div className="bg-white dark:bg-slate-900 border p-6 rounded-xl shadow-card">
+        <h3 className="text-lg font-semibold text-slate-800 dark:text-white mb-4">
+          Quick Actions
+        </h3>
 
-  <div className="flex flex-wrap gap-4">
-    
-    {/* Add Patient */}
-    <button
-      onClick={() => (window.location.href = "/patients")}
-      className="px-5 py-2.5 bg-brand text-white rounded-lg shadow-sm hover:bg-brand-dark transition"
-    >
-      + Add Patient
-    </button>
+        <div className="flex flex-wrap gap-4">
 
-    {/* Book Appointment → FIXED */} 
-    <button
-      onClick={() => (window.location.href = "/book-appointment")}
-      className="px-5 py-2.5 border border-emerald-600 
-                 text-emerald-600 rounded-lg 
-                 hover:bg-emerald-50 transition"
-    >
-      + Book Appointment
-    </button>
+          {/* OPEN MODAL, NOT REDIRECT */}
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="px-5 py-2.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition flex items-center gap-2"
+          >
+            <Plus size={18} /> Add Patient
+          </button>
 
-  </div>
-</motion.div>
+          <button
+            onClick={() => (window.location.href = "/book-appointment")}
+            className="px-5 py-2.5 border border-emerald-600 text-emerald-600 rounded-lg hover:bg-emerald-50 transition"
+          >
+            + Book Appointment
+          </button>
+        </div>
+      </motion.div>
 
-
-      {/* MAIN GRID - CHART & SIDEBAR */}
+      {/* MAIN CHART + SIDEBAR */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Chart */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="lg:col-span-2 bg-white dark:bg-slate-900 p-6 rounded-xl shadow-card border"
-        >
-          <h3 className="text-lg font-semibold text-slate-800 dark:text-white mb-3">
-            Monthly Appointments
-          </h3>
 
-          <div style={{ width: "100%", height: 260 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart
-                data={monthlyData}
-                margin={{ top: 10, right: 20, left: -10, bottom: 0 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" tick={{ fill: "#64748b" }} />
-                <Tooltip />
-                <Line
-                  type="monotone"
-                  dataKey="value"
-                  stroke="#10b981"
-                  strokeWidth={3}
-                  dot={{ r: 4 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
+        {/* CHART */}
+        <motion.div className="lg:col-span-2 bg-white dark:bg-slate-900 p-6 rounded-xl shadow-card border">
+          <h3 className="text-lg font-semibold mb-3">Monthly Appointments</h3>
+
+          <ResponsiveContainer width="100%" height={260}>
+            <LineChart data={monthlyData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="month" tick={{ fill: "#64748b" }} />
+              <Tooltip />
+              <Line type="monotone" dataKey="value" stroke="#10b981" strokeWidth={3} dot={{ r: 4 }} />
+            </LineChart>
+          </ResponsiveContainer>
         </motion.div>
 
-        {/* Right Column */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.25 }}
-          className="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-card border"
-        >
+        {/* SIDEBAR */}
+        <motion.div className="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-card border">
+
           {/* Recent Patients */}
-          <h4 className="text-md font-semibold text-slate-800 dark:text-white mb-3">
-            Recent Patients
-          </h4>
+          <h4 className="text-md font-semibold mb-3">Recent Patients</h4>
 
           {loading ? (
             <div className="space-y-3">
-              <div className="h-12 bg-slate-100 dark:bg-slate-800 rounded-lg animate-pulse"></div>
-              <div className="h-12 bg-slate-100 dark:bg-slate-800 rounded-lg animate-pulse"></div>
+              <div className="h-12 bg-slate-100 dark:bg-slate-800 rounded-lg animate-pulse" />
+              <div className="h-12 bg-slate-100 dark:bg-slate-800 rounded-lg animate-pulse" />
             </div>
           ) : (
             <ul className="space-y-3">
@@ -337,9 +409,7 @@ export default function Dashboard() {
                     {p.name?.charAt(0).toUpperCase()}
                   </div>
                   <div className="flex-1">
-                    <div className="font-medium text-slate-800 dark:text-white">
-                      {p.name}
-                    </div>
+                    <div className="font-medium">{p.name}</div>
                     <div className="text-xs text-slate-500">{p.phone}</div>
                   </div>
                   <div className="text-xs text-slate-500">{p.age} yrs</div>
@@ -349,7 +419,7 @@ export default function Dashboard() {
           )}
 
           {/* Upcoming Appointments */}
-          <h4 className="text-md font-semibold text-slate-800 dark:text-white mt-6 mb-3">
+          <h4 className="text-md font-semibold mt-6 mb-3">
             Upcoming Appointments
           </h4>
 
@@ -362,13 +432,14 @@ export default function Dashboard() {
                 return (
                   <li key={a.id} className="flex items-start justify-between">
                     <div>
-                      <div className="font-medium text-slate-800 dark:text-white text-sm">
+                      <div className="font-medium text-sm">
                         {patient?.name || "Unknown"}
                       </div>
                       <div className="text-xs text-slate-500">
                         {a.date} • {a.time}
                       </div>
                     </div>
+
                     <span className="px-2 py-1 rounded-md bg-emerald-50 text-emerald-700 text-xs h-fit">
                       {a.type}
                     </span>

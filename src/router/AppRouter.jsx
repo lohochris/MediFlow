@@ -17,7 +17,7 @@ import RequireAdmin from "../auth/RequireAdmin.jsx";
 // LAYOUT
 import Layout from "../layout/Layout.jsx";
 
-// MAIN PAGES
+// MAIN PAGES (Authenticated)
 import Dashboard from "../pages/Dashboard";
 import Patients from "../pages/Patients";
 import Appointments from "../pages/Appointments";
@@ -25,14 +25,13 @@ import Reports from "../pages/Reports";
 import Settings from "../pages/Settings";
 import BookAppointment from "../pages/BookAppointment";
 import NotFound from "../pages/NotFound";
-import PatientRecord from "../pages/PatientRecord";
+import PatientRecord from "../pages/PatientRecord"; // Admin/SuperAdmin use
 
 // ADMIN PAGES
 import AdminDashboard from "../pages/Admin/AdminDashboard";
 import Departments from "../pages/Admin/Departments";
 import UserManagement from "../pages/Admin/UserManagement";
-
-// SUPERADMIN
+import CreateDoctor from "../pages/Admin/CreateDoctor";
 import SuperAdminDashboard from "../pages/Admin/SuperAdminDashboard";
 
 // DOCTOR PAGES
@@ -45,98 +44,72 @@ export default function AppRouter() {
     <BrowserRouter>
       <AuthProvider>
         <ThemeProvider>
-
           <Routes>
 
-            {/* ===================================== */}
-            {/*           PUBLIC ROUTES               */}
-            {/* ===================================== */}
+            {/* PUBLIC ROUTES */}
             <Route path="/" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/oauth-success" element={<OAuthSuccess />} />
-
-            {/* Public view of patient records */}
-            <Route path="/patients/:id" element={<PatientRecord />} />
-
-            {/* Public appointment booking */}
             <Route path="/book-appointment" element={<BookAppointment />} />
 
+            {/* ❌ REMOVED: PUBLIC EMR ACCESS */}
+            {/* <Route path="/patients/:id" element={<PatientRecord />} /> */}
 
-            {/* ===================================== */}
-            {/*        AUTHENTICATED USER ROUTES      */}
-            {/* ===================================== */}
-
-            {/* Dashboard */}
+            {/* AUTHENTICATED ROUTES */}
             <Route
               path="/dashboard"
               element={
                 <RequireAuth>
-                  <Layout>
-                    <Dashboard />
-                  </Layout>
+                  <Layout><Dashboard /></Layout>
                 </RequireAuth>
               }
             />
 
-            {/* Patients */}
             <Route
               path="/patients"
               element={
                 <RequireAuth>
-                  <Layout>
-                    <Patients />
-                  </Layout>
+                  <Layout><Patients /></Layout>
                 </RequireAuth>
               }
             />
 
-            {/* Appointments */}
             <Route
               path="/appointments"
               element={
                 <RequireAuth>
-                  <Layout>
-                    <Appointments />
-                  </Layout>
+                  <Layout><Appointments /></Layout>
                 </RequireAuth>
               }
             />
 
-            {/* Reports */}
             <Route
               path="/reports"
               element={
                 <RequireAuth>
-                  <Layout>
-                    <Reports />
-                  </Layout>
+                  <Layout><Reports /></Layout>
                 </RequireAuth>
               }
             />
 
-            {/* Settings */}
             <Route
               path="/settings"
               element={
                 <RequireAuth>
-                  <Layout>
-                    <Settings />
-                  </Layout>
+                  <Layout><Settings /></Layout>
                 </RequireAuth>
               }
             />
 
+            {/* ======================= */}
+            {/*       DOCTOR ROUTES     */}
+            {/* ======================= */}
 
-            {/* ===================================== */}
-            {/*              DOCTOR ROUTES            */}
-            {/* ===================================== */}
             <Route
-              path="/doctor"
+              path="/doctor/dashboard"
               element={
                 <RequireAuth>
-                  <Layout>
-                    <DoctorDashboard />
-                  </Layout>
+                  <Layout><DoctorDashboard /></Layout>
                 </RequireAuth>
               }
             />
@@ -145,9 +118,7 @@ export default function AppRouter() {
               path="/doctor/patients"
               element={
                 <RequireAuth>
-                  <Layout>
-                    <PatientList />
-                  </Layout>
+                  <Layout><PatientList /></Layout>
                 </RequireAuth>
               }
             />
@@ -156,24 +127,29 @@ export default function AppRouter() {
               path="/doctor/patients/:id"
               element={
                 <RequireAuth>
-                  <Layout>
-                    <DoctorPatientRecord />
-                  </Layout>
+                  <Layout><DoctorPatientRecord /></Layout>
                 </RequireAuth>
               }
             />
 
+            <Route
+              path="/doctor/appointments"
+              element={
+                <RequireAuth>
+                  <Layout><Appointments /></Layout>
+                </RequireAuth>
+              }
+            />
 
-            {/* ===================================== */}
-            {/*              ADMIN ROUTES             */}
-            {/* ===================================== */}
+            {/* ======================= */}
+            {/*       ADMIN ROUTES      */}
+            {/* ======================= */}
+
             <Route
               path="/admin"
               element={
                 <RequireAdmin>
-                  <Layout>
-                    <AdminDashboard />
-                  </Layout>
+                  <Layout><AdminDashboard /></Layout>
                 </RequireAdmin>
               }
             />
@@ -182,9 +158,7 @@ export default function AppRouter() {
               path="/admin/departments"
               element={
                 <RequireAdmin>
-                  <Layout>
-                    <Departments />
-                  </Layout>
+                  <Layout><Departments /></Layout>
                 </RequireAdmin>
               }
             />
@@ -193,36 +167,33 @@ export default function AppRouter() {
               path="/admin/users"
               element={
                 <RequireAdmin>
-                  <Layout>
-                    <UserManagement />
-                  </Layout>
+                  <Layout><UserManagement /></Layout>
                 </RequireAdmin>
               }
             />
 
+            <Route
+              path="/admin/create-doctor"
+              element={
+                <RequireAdmin>
+                  <Layout><CreateDoctor /></Layout>
+                </RequireAdmin>
+              }
+            />
 
-            {/* ===================================== */}
-            {/*            SUPERADMIN ROUTE           */}
-            {/* ===================================== */}
             <Route
               path="/admin/superadmin"
               element={
                 <RequireAdmin>
-                  <Layout>
-                    <SuperAdminDashboard />
-                  </Layout>
+                  <Layout><SuperAdminDashboard /></Layout>
                 </RequireAdmin>
               }
             />
 
-
-            {/* ===================================== */}
-            {/*               NOT FOUND               */}
-            {/* ===================================== */}
+            {/* 404 */}
             <Route path="*" element={<NotFound />} />
 
           </Routes>
-
         </ThemeProvider>
       </AuthProvider>
     </BrowserRouter>

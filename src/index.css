@@ -2,7 +2,30 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Full height for layout */
 html,
 body {
   height: 100%;
+}
+
+/* Smooth theme transition */
+html.dark,
+html.light {
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+/* Fade-in animation for dropdowns (notifications, menus, etc.) */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.18s ease-out;
 }

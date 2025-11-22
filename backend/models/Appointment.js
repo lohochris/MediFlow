@@ -1,16 +1,15 @@
-// backend/models/Appointment.js
 import mongoose from "mongoose";
 
 const appointmentSchema = new mongoose.Schema(
   {
-    // Link to patient
+    // Link to patient → MUST reference Patient model, not User
     patient: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Patient",
       required: true,
     },
 
-    // Optional doctor assignment
+    // Assigned doctor (User model)
     doctor: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -22,20 +21,17 @@ const appointmentSchema = new mongoose.Schema(
     time: { type: String, required: true },
     type: { type: String, required: true },
 
-    // Status
     status: {
       type: String,
       enum: ["pending", "completed", "cancelled"],
       default: "pending",
     },
 
-    // Automatically set when appointment is completed
     completedAt: {
       type: Date,
       default: null,
     },
 
-    // Helpful for analytics (timestamp at creation)
     scheduledAt: {
       type: Date,
       default: () => new Date(),
@@ -44,27 +40,19 @@ const appointmentSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-/* ---------------------------------------------------------
-   AUTO-HANDLE COMPLETION TIMESTAMP
---------------------------------------------------------- */
+/* Auto-set completedAt */
 appointmentSchema.pre("findOneAndUpdate", function (next) {
   const update = this.getUpdate();
-
-  // If status changes to completed and no completedAt is set
   if (update?.status === "completed") {
     update.completedAt = new Date();
   }
-
   next();
 });
 
-/* ---------------------------------------------------------
-   Format JSON output for frontend
---------------------------------------------------------- */
+/* JSON formatting */
 appointmentSchema.method("toJSON", function () {
   const obj = this.toObject();
   obj.id = obj._id;
-
   delete obj._id;
   delete obj.__v;
   return obj;
