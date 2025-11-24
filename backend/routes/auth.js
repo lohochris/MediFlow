@@ -7,7 +7,7 @@ import { signAccessToken, signRefreshToken, hashToken } from "../utils/tokens.js
 const router = express.Router();
 
 // -----------------------------------------------------------------------------
-// REGISTER  (Auto-login)
+// REGISTER (Auto-login)
 // -----------------------------------------------------------------------------
 router.post("/register", async (req, res) => {
   const { name, email, password, role, department } = req.body;
@@ -47,12 +47,12 @@ router.post("/register", async (req, res) => {
 
   await user.save();
 
-  // Set refresh token cookie (IMPORTANT FIX)
+  // FIXED COOKIE — now works on Render
   res.cookie("refreshToken", refreshToken, {
     httpOnly: true,
-    secure: false,     // localhost only
-    sameSite: "Lax",
-    path: "/",         // REQUIRED for browser to store cookie
+    secure: true,        // REQUIRED FOR HTTPS + CROSS-SITE
+    sameSite: "None",    // REQUIRED for browser to send cookie
+    path: "/",
   });
 
   return res.status(201).json({
@@ -94,12 +94,12 @@ router.post("/login", async (req, res) => {
 
   await user.save();
 
-  // Set refresh token cookie (IMPORTANT FIX)
+  // FIXED COOKIE — now works on Render
   res.cookie("refreshToken", refreshToken, {
     httpOnly: true,
-    secure: false,
-    sameSite: "Lax",
-    path: "/",   // FIXED
+    secure: true,
+    sameSite: "None",
+    path: "/",
   });
 
   return res.json({
@@ -109,7 +109,7 @@ router.post("/login", async (req, res) => {
 });
 
 // -----------------------------------------------------------------------------
-// REFRESH TOKEN (Silent authentication)
+// REFRESH TOKEN
 // -----------------------------------------------------------------------------
 router.post("/refresh", async (req, res) => {
   const rt = req.cookies?.refreshToken;
@@ -127,9 +127,9 @@ router.post("/refresh", async (req, res) => {
 
     const bcrypt = await import("bcryptjs");
     const valid = await bcrypt.compare(rt, entry.tokenHash);
-    if (!valid) return res.status(401).json({ error: "Refresh token mismatch" });
+    if (!valid) return res.status(401).json({ error: "Token mismatch" });
 
-    // ROTATE TOKEN (security best practice)
+    // ROTATE TOKEN
     user.refreshTokens.splice(idx, 1);
 
     const { token: newRefreshToken, tokenId: newTokenId } = signRefreshToken({
@@ -137,7 +137,6 @@ router.post("/refresh", async (req, res) => {
     });
 
     const newHash = await hashToken(newRefreshToken);
-
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 30);
 
@@ -151,12 +150,12 @@ router.post("/refresh", async (req, res) => {
 
     await user.save();
 
-    // Set NEW refresh cookie (IMPORTANT FIX)
+    // FIXED COOKIE — now works on Render
     res.cookie("refreshToken", newRefreshToken, {
       httpOnly: true,
-      secure: false,
-      sameSite: "Lax",
-      path: "/",   // FIXED
+      secure: true,
+      sameSite: "None",
+      path: "/",
     });
 
     const accessToken = signAccessToken({
@@ -192,8 +191,19 @@ router.post("/logout", async (req, res) => {
     } catch (_) {}
   }
 
-  res.clearCookie("refreshToken", { path: "/" });
-  res.clearCookie("accessToken", { path: "/" });
+  res.clearCookie("refreshToken", {
+    httpOnly: true,
+    secure: true,
+    sameSite: "None",
+    path: "/",
+  });
+
+  res.clearCookie("accessToken", {
+    httpOnly: true,
+    secure: true,
+    sameSite: "None",
+    path: "/",
+  });
 
   return res.json({ message: "Logged out" });
 });

@@ -1,6 +1,5 @@
 /**
  * SERVER.JS — MediFlow HMS Backend
- * High-standard | Secure | Fully Modular | Real-time Admin Insights
  */
 
 import express from "express";
@@ -48,12 +47,28 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 /* -----------------------------------------------------------
-   CORS CONFIG — DEV/PROD SAFE, COOKIE-COMPATIBLE
+   CORS CONFIG — REQUIRED FOR REFRESH TOKEN COOKIE
 ----------------------------------------------------------- */
+
+const allowedOrigins = [
+  "http://localhost:5173",                 // local dev
+  "https://mediflow.onrender.com",         // your new frontend
+  "https://mediflow-frontend.onrender.com" // old frontend (just in case)
+];
+
 app.use(
   cors({
-    origin: true,
-    credentials: true,
+    origin: function (origin, callback) {
+      // allow non-browser tools like Postman
+      if (!origin) return callback(null, true);
+
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("CORS blocked: " + origin));
+      }
+    },
+    credentials: true, // IMPORTANT for cookies
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
@@ -91,13 +106,13 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/admin/notifications", adminNotificationRoutes);
 app.use("/api/notify", notifyRoutes);
 
-// ADMIN: ANALYTICS + REPORTING + EXPORT
-app.use("/api/admin", adminRoutes); 
+// ADMIN ROUTES
+app.use("/api/admin", adminRoutes);
 app.use("/api/admin/reports", adminReportRoutes);
 app.use("/api/admin/export", adminExportRoutes);
 
 /* -----------------------------------------------------------
-   HEALTH CHECK ENDPOINT
+   HEALTH CHECK
 ----------------------------------------------------------- */
 app.get("/api/health", (req, res) =>
   res.json({
