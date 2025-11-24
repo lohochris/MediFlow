@@ -6,10 +6,11 @@ import { resolve } from "path";
 export default defineConfig({
   plugins: [react()],
 
-  // ensure Vite copies everything inside /public into /dist
   publicDir: "public",
 
-  // DEV: keep backend proxy working locally
+  // Force Vite to include _redirects
+  assetsInclude: ["_redirects"],
+
   server: {
     proxy: {
       "/auth": {
@@ -25,7 +26,6 @@ export default defineConfig({
     },
   },
 
-  // BUILD for Render deployment
   build: {
     outDir: "dist",
     rollupOptions: {
@@ -35,7 +35,6 @@ export default defineConfig({
     },
   },
 
-  // Preview settings (optional)
   preview: {
     port: 4173,
     strictPort: true,
