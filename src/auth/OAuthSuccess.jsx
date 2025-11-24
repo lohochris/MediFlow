@@ -1,7 +1,7 @@
 // src/auth/OAuthSuccess.jsx
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { saveGoogleLogin, getCurrentUser } from "../services/authService";
+import { saveGoogleLogin } from "../services/authService";
 import toast from "react-hot-toast";
 
 export default function OAuthSuccess() {
@@ -11,44 +11,42 @@ export default function OAuthSuccess() {
     async function finalize() {
       try {
         const params = new URLSearchParams(window.location.search);
-
-        // Data passed from backend redirect
         const token = params.get("token");
-        const name = params.get("name");
-        const email = params.get("email");
-        const role = params.get("role");
-        const id = params.get("id");
 
-        if (!token || !email || !id) {
-          toast.error("Google login failed.");
+        if (!token) {
+          toast.error("Google login failed: No token received.");
           return navigate("/");
         }
 
-        // Construct user object from redirect info
+        // Decode JWT payload
+        const payload = JSON.parse(atob(token.split(".")[1]));
+
         const userObj = {
-          _id: id,
-          name,
-          email,
-          role,
+          _id: payload.sub,
+          role: payload.role,
+          // Optional fields if included in backend JWT
+          email: payload.email,
+          name: payload.name,
         };
 
-        // Save login with token
+        // Save login session (your existing system)
         saveGoogleLogin(token, userObj);
 
-        const saved = getCurrentUser();
+        // Redirect based on role
+        switch (userObj.role) {
+          case "Admin":
+          case "SuperAdmin":
+            return navigate("/admin");
 
-        if (!saved) {
-          toast.error("Login session failed.");
-          return navigate("/");
+          case "Doctor":
+            return navigate("/doctor");
+
+          default:
+            return navigate("/dashboard");
         }
 
-        // Redirect
-        if (saved.role === "Admin") navigate("/admin");
-        else if (saved.role === "Doctor") navigate("/doctor");
-        else navigate("/dashboard");
-
       } catch (err) {
-        console.error(err);
+        console.error("OAuthSuccess error:", err);
         toast.error("Google login error.");
         navigate("/");
       }
