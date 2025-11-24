@@ -20,7 +20,6 @@ export default function Login() {
     e.preventDefault();
 
     try {
-      // Call backend login
       const res = await loginUser(email, password);
 
       const userObj = {
@@ -28,12 +27,10 @@ export default function Login() {
         accessToken: res.accessToken,
       };
 
-      // Save globally
       login(userObj);
-
       toast.success("Logged in successfully!");
 
-      // RBAC REDIRECT LOGIC — identical to Register.jsx
+      // RBAC redirect logic
       switch (userObj.role) {
         case "SuperAdmin":
         case "Admin":
@@ -47,17 +44,23 @@ export default function Login() {
         default:
           navigate("/dashboard");
       }
-
     } catch (err) {
       toast.error(err?.response?.data?.error || "Invalid email or password");
     }
   };
 
   // ==================================================
-  // GOOGLE LOGIN
+  // GOOGLE LOGIN  (FIXED FOR RENDER + LOCAL DEV)
   // ==================================================
   const handleGoogle = () => {
-    window.location.href = `${import.meta.env.VITE_BACKEND_URL}/api/auth/google`;
+    const backendURL = import.meta.env.VITE_BACKEND_URL;
+
+    if (!backendURL) {
+      toast.error("Backend URL not configured");
+      return;
+    }
+
+    window.location.href = `${backendURL}/api/auth/google`;
   };
 
   return (
