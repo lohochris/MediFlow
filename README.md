@@ -7,50 +7,89 @@ This project is built with **React + Tailwind + Node.js + Express + MongoDB**, w
 
 ---
 
-## 🚀 Features
+## Features
+## Authentication & Security
 
-### 🔐 Authentication & Security
-- Email/password login
-- Google OAuth login
-- JWT Access & Refresh Token (secure rotation)
-- Auto token refresh (silent login)
-- Protected routes (frontend + backend)
-- Role-Based Access Control (RBAC)
-- Soft delete & hard delete handling
+Email/Password login
 
----
+Google OAuth
 
-### 👨‍⚕️ Role-Based Dashboards
-| Role | Features |
-|------|----------|
-| **SuperAdmin** | Full system control, create admins, manage users, roles, departments |
-| **Admin** | Manage users (except SuperAdmin), departments, system settings |
-| **Doctor** | Own dashboard, view patients, view patient records |
-| **Patient** | Book appointments, view own medical info |
-| **Others (Nurses, Pharm, Lab, etc.)** | Extensible permissions system |
+JWT Access + Refresh Tokens (secure rotation)
 
----
+Auto token refresh (silent auth)
 
-### 🏥 Clinical Features
+Protected routes (frontend + backend)
+
+Role-Based Access Control (RBAC)
+
+Activity tracking (middleware)
+
+Soft delete + permanent delete support
+
+### Role-Based Dashboards
+Role	      Permissions
+SuperAdmin	  Full control, manage system, admins, staff, departments
+Admin	      Manage users, departments, settings
+Doctor	      Patient list, records, appointments, file uploads
+Patient	      Book/view appointments, profile info
+Nurse / Lab / Pharmacy / Others	  Extendable role permissions
+
+permissions
+## Core Hospital Modules
+
 - Patient registration & management
-- Appointment scheduling system
-- Doctor–patient interaction module
-- Department & staff management
-- Patient records view
-- Role-based permissions (view/edit restrictions)
 
----
+- Appointment scheduling & calendar
 
-### ⚙️ System Architecture
-- **Frontend:** React, TailwindCSS, Framer Motion
-- **Backend:** Node.js, Express, Passport
-- **Database:** MongoDB (Mongoose)
-- **Auth:** JWT + refresh tokens (secure rotation)
-- **API:** RESTful API structure
+- Doctor–patient view
 
----
+- File uploads (Lab/Doctor)
 
-## 📦 Project Structure
+- Department management
+
+- User management (RBAC)
+
+- Activity logs
+
+- Dark/light theme
+
+- Notification dropdown system
+
+- Charts and analytics (Recharts)
+
+## System Architecture
+# Frontend
+
+- React (Vite)
+
+- TailwindCSS
+
+- Axios (interceptors + token storage)
+
+- React Router v6
+
+- Context API (Auth, Theme, Notification)
+
+- Recharts / Lucide Icons / Framer Motion
+  
+# Backend
+
+- Node.js
+
+- Express.js
+
+- MongoDB (Mongoose)
+
+- Passport.js (Google OAuth)
+
+- JWT Authentication
+
+- RBAC Permissions
+
+- Activity Logger Middleware
+
+
+##  Project Structure
 
 mediflow-app/
 │
@@ -58,106 +97,144 @@ mediflow-app/
 │   ├── config/
 │   │   ├── db.js
 │   │   ├── passport.js
-│   │   └── permissions.js
+│   │   ├── permissions.js
 │   │
 │   ├── controllers/
-│   │   └── PatientController.js
-│   │
 │   ├── middleware/
-│   │   └── auth.js
+│   │   ├── auth.js
+│   │   ├── withActivity.js
 │   │
 │   ├── models/
 │   │   ├── User.js
+│   │   ├── Patient.js
+│   │   ├── Appointment.js
 │   │   ├── Department.js
-│   │   └── Patient.js
 │   │
 │   ├── routes/
 │   │   ├── auth.js
 │   │   ├── googleAuth.js
 │   │   ├── users.js
 │   │   ├── patients.js
-│   │   ├── departments.js
+│   │   ├── appointments.js
 │   │   ├── doctor.js
-│   │   └── appointments.js
+│   │   ├── departments.js
 │   │
-│   ├── scripts/
-│   │   ├── seedAdmin.js
-│   │   └── deleteUser.js
+│   ├── services/
+│   │   ├── activityService.js
 │   │
-│   ├── utils/
-│   │   ├── tokens.js
-│   │   └── helpers.js
-│   │
-│   ├── node_modules/
-│   ├── .env
-│   ├── package.json
-│   ├── package-lock.json
-│   └── server.js
+│   ├── server.js
+│   └── package.json
 │
 ├── public/
+│   └── assets/
 │
 ├── src/
 │   ├── api/
-│   │   └── api.js
+│   │   ├── api.js
+│   │   ├── axios.js
+│   │   └── tokenStore.js
 │   │
 │   ├── assets/
+│   │   ├── logo.png
+│   │   └── react.svg
 │   │
 │   ├── auth/
 │   │   ├── Login.jsx
 │   │   ├── Register.jsx
-│   │   └── OAuthSuccess.jsx
+│   │   ├── OAuthSuccess.jsx
+│   │   ├── RequireAuth.jsx
+│   │   └── RequireAdmin.jsx
 │   │
 │   ├── components/
-│   │   ├── header/
-│   │   ├── sidebar/
 │   │   ├── appointments/
-│   │   └── forms/
+│   │   │   ├── AppointmentCard.jsx
+│   │   │   └── AppointmentModal.jsx
+│   │   ├── common/
+│   │   │   ├── Button.jsx
+│   │   │   ├── ErrorBoundary.jsx
+│   │   │   ├── IconCircle.jsx
+│   │   │   └── Input.jsx
+│   │   ├── header/
+│   │   │   └── Header.jsx
+│   │   ├── patients/
+│   │   │   ├── AddPatientModal.jsx
+│   │   │   ├── PatientCard.jsx
+│   │   │   └── PatientList.jsx
+│   │   ├── sidebar/
+│   │   └── stats/
+│   │       ├── DashboardWelcome.jsx
+│   │       ├── DepartmentSelect.jsx
+│   │       └── GoogleLoginButton.jsx
 │   │
 │   ├── context/
-│   │   └── AuthContext.js
+│   │   ├── AuthContext.jsx
+│   │   ├── MediFlowContext.jsx
+│   │   └── ThemeContext.jsx
 │   │
 │   ├── hooks/
+│   │   ├── useAuth.js
+│   │   ├── useNotifications.js
+│   │   └── useResettableState.js
 │   │
 │   ├── layout/
 │   │   └── Layout.jsx
 │   │
 │   ├── pages/
-│   │   ├── admin/
-│   │   │   ├── Dashboard.jsx
-│   │   │   ├── Users.jsx
-│   │   │   └── Departments.jsx
-│   │   ├── patient/
-│   │   ├── doctor/
-│   │   └── dashboard/
+│   │   ├── Admin/
+│   │   │   ├── AdminDashboard.jsx
+│   │   │   ├── CreateDoctor.jsx
+│   │   │   ├── Departments.jsx
+│   │   │   ├── SuperAdminDashboard.jsx
+│   │   │   └── UserManagement.jsx
+│   │   ├── Doctor/
+│   │   │   ├── DoctorDashboard.jsx
+│   │   │   ├── DoctorPatientRecord.jsx
+│   │   │   ├── PatientList.jsx
+│   │   │   └── UploadFiles.jsx
+│   │   ├── Appointments.jsx
+│   │   ├── BookAppointment.jsx
+│   │   ├── Dashboard.jsx
+│   │   ├── DoctorAppointments.jsx
+│   │   ├── NotFound.jsx
+│   │   ├── PatientRecord.jsx
+│   │   ├── Patients.jsx
+│   │   ├── Reports.jsx
+│   │   └── Settings.jsx
 │   │
 │   ├── router/
 │   │   └── AppRouter.jsx
 │   │
 │   ├── services/
-│   │   ├── authService.js
-│   │   ├── patientService.js
+│   │   ├── adminService.js
 │   │   ├── appointmentService.js
-│   │   └── departmentService.js
+│   │   ├── authService.js
+│   │   ├── departmentService.js
+│   │   ├── doctorService.js
+│   │   ├── notificationService.js
+│   │   ├── patientService.js
+│   │   └── usersService.js
 │   │
 │   ├── styles/
-│   │   └── global.css
+│   │   ├── globals.css
+│   │   ├── App.css
+│   │   └── index.css
 │   │
-│   └── App.jsx
+│   ├── App.jsx
+│   └── main.jsx
 │
-├── node_modules/
+├── tailwind.config.js
+├── vite.config.js
 ├── package.json
-├── package-lock.json
 └── README.md
+
 
 ---
 
 ## 🛠️ Installation & Setup
-
 ### 📥 Clone the Repository
 ```bash
 git clone https://github.com/lohochris/MediFlow.git
-cd MediFlow
-
+cd mediflow-app
 Backend Setup (/backend)
 1️⃣ Install dependencies
 cd backend
@@ -179,7 +256,7 @@ npm run seed:admin
 Default credentials:
 
 Email: admin@mediflow.com
-Password: Admin123
+Password: Admin123!
 
 Start backend server
 npm run dev
@@ -251,6 +328,7 @@ POST   /departments
 GET    /departments
 PUT    /departments/:id
 DELETE /departments/:id
+
 📊 Roadmap (Next 30%)
 
  Doctor → add patient notes, prescriptions, vitals
@@ -281,7 +359,7 @@ Submit PR
 
 This project is licensed under the MIT License.
 
-⭐ Support the Project
+Support the Project
 
 If you like this project, give it a star on GitHub ⭐
 Your support encourages further development!
