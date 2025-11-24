@@ -6,14 +6,27 @@ import passport from "passport";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import User from "../models/User.js";
 
-// GOOGLE STRATEGY
+// Determine environment (local dev vs production)
+const isProd = process.env.NODE_ENV === "production";
+
+// Choose correct callback URL based on environment
+// Production uses Render backend URL
+// Development uses localhost
+const GOOGLE_REDIRECT_URI = isProd
+  ? "https://mediflow-backend-ckj2.onrender.com/api/auth/google/callback"
+  : "http://localhost:5000/api/auth/google/callback";
+
 passport.use(
   new GoogleStrategy(
     {
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL: process.env.GOOGLE_REDIRECT_URI,
+
+      // 🔥 VERY IMPORTANT
+      // Avoid relying 100% on env vars since Render & local differ
+      callbackURL: GOOGLE_REDIRECT_URI,
     },
+
     async (accessToken, refreshToken, profile, done) => {
       try {
         const email = profile.emails?.[0]?.value;
@@ -21,16 +34,16 @@ passport.use(
 
         if (!email) return done(new Error("Google email missing"), null);
 
-        // Check if user already exists
+        // Check if user exists
         let user = await User.findOne({ email });
 
         if (user) {
-          // 🔥 FIX: update existing user basic fields
-          user.name = user.name || name;  
+          // Update basic profile for completeness
+          user.name = user.name || name;
           user.isActive = true;
           await user.save();
         } else {
-          // 🔥 FIX: create user WITHOUT passwordHash requirement
+          // Create user without password
           user = await User.create({
             name,
             email,
@@ -49,8 +62,6 @@ passport.use(
   )
 );
 
-// ❌ IMPORTANT: do NOT serialize user — no sessions used
-// passport.serializeUser(() => {});
-// passport.deserializeUser(() => {});
-
+// No sessions used in JWT mode
+// Just leave passport session handlers disabled
 export default passport;
