@@ -52,8 +52,8 @@ app.use(cookieParser());
 
 const allowedOrigins = [
   "http://localhost:5173",                 // local dev
-  "https://mediflow.onrender.com",         // your new frontend
-  "https://mediflow-frontend.onrender.com" // old frontend (just in case)
+  "https://mediflow-4zvx.onrender.com",         // your new frontend
+  "https://mediflow-frontend.onrender.com" 
 ];
 
 app.use(
