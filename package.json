@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && cp public/_redirects dist/_redirects",
+    "build": "vite build && npx cpx public/_redirects dist/",
     "lint": "eslint .",
     "preview": "vite preview",
     "server": "json-server --watch db.json --port 3000",
@@ -31,6 +31,7 @@
     "@vitejs/plugin-react": "^5.1.0",
     "autoprefixer": "^10.4.22",
     "concurrently": "^8.2.1",
+    "cpx": "^1.2.1",
     "eslint": "^9.39.1",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",
