@@ -2,22 +2,22 @@
 import express from "express";
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
+import Patient from "../models/Patient.js";
 import { signAccessToken, signRefreshToken, hashToken } from "../utils/tokens.js";
 
 const router = express.Router();
 
 // -----------------------------------------------------------------------------
-// REGISTER (Auto-login)
+// REGISTER + AUTO CREATE PATIENT RECORD
 // -----------------------------------------------------------------------------
 router.post("/register", async (req, res) => {
-  const { name, email, password, role, department } = req.body;
+  const { name, email, password, role } = req.body;
 
   if (!name || !email || !password)
     return res.status(400).json({ error: "Missing fields" });
 
   const existing = await User.findOne({ email });
-  if (existing)
-    return res.status(409).json({ error: "Email already used" });
+  if (existing) return res.status(409).json({ error: "Email already used" });
 
   const passwordHash = await User.hashPassword(password);
 
@@ -26,10 +26,22 @@ router.post("/register", async (req, res) => {
     email,
     passwordHash,
     role: role || "Patient",
-    department: department || "None",
   });
 
-  // Create tokens
+  // AUTO-CREATE A PATIENT PROFILE
+  if (user.role === "Patient") {
+    await Patient.create({
+      user: user._id,
+      name: user.name,
+      email: user.email,
+      phone: null,
+      gender: null,
+      dob: null,
+      assignedDoctor: null,
+    });
+  }
+
+  // Tokens
   const accessToken = signAccessToken({ sub: user._id, role: user.role });
   const { token: refreshToken, tokenId } = signRefreshToken({ sub: user._id });
 
@@ -47,15 +59,15 @@ router.post("/register", async (req, res) => {
 
   await user.save();
 
-  // FIXED COOKIE — now works on Render
+  // Set refresh cookie
   res.cookie("refreshToken", refreshToken, {
     httpOnly: true,
-    secure: true,        // REQUIRED FOR HTTPS + CROSS-SITE
-    sameSite: "None",    // REQUIRED for browser to send cookie
+    secure: true,
+    sameSite: "None",
     path: "/",
   });
 
-  return res.status(201).json({
+  res.status(201).json({
     accessToken,
     user: user.toJSON(),
   });
@@ -65,10 +77,7 @@ router.post("/register", async (req, res) => {
 // LOGIN
 // -----------------------------------------------------------------------------
 router.post("/login", async (req, res) => {
-  const { email, password, device } = req.body;
-
-  if (!email || !password)
-    return res.status(400).json({ error: "Missing credentials" });
+  const { email, password } = req.body;
 
   const user = await User.findOne({ email });
   if (!user) return res.status(401).json({ error: "Invalid credentials" });
@@ -76,25 +85,21 @@ router.post("/login", async (req, res) => {
   const ok = await user.verifyPassword(password);
   if (!ok) return res.status(401).json({ error: "Invalid credentials" });
 
-  // Create tokens
   const accessToken = signAccessToken({ sub: user._id, role: user.role });
   const { token: refreshToken, tokenId } = signRefreshToken({ sub: user._id });
 
   const refreshHash = await hashToken(refreshToken);
-  const expiresAt = new Date();
-  expiresAt.setDate(expiresAt.getDate() + 30);
 
   user.refreshTokens.push({
     tokenId,
     tokenHash: refreshHash,
-    device: device || "Unknown",
+    device: "Login",
     ip: req.ip,
-    expiresAt,
+    expiresAt: new Date(Date.now() + 30 * 24 * 3600 * 1000),
   });
 
   await user.save();
 
-  // FIXED COOKIE — now works on Render
   res.cookie("refreshToken", refreshToken, {
     httpOnly: true,
     secure: true,
@@ -102,7 +107,7 @@ router.post("/login", async (req, res) => {
     path: "/",
   });
 
-  return res.json({
+  res.json({
     accessToken,
     user: user.toJSON(),
   });
@@ -120,38 +125,33 @@ router.post("/refresh", async (req, res) => {
     const user = await User.findById(payload.sub);
     if (!user) return res.status(401).json({ error: "Invalid user" });
 
-    const idx = user.refreshTokens.findIndex((t) => t.tokenId === payload.tokenId);
-    if (idx === -1) return res.status(401).json({ error: "Invalid refresh token" });
-
-    const entry = user.refreshTokens[idx];
+    const entry = user.refreshTokens.find((t) => t.tokenId === payload.tokenId);
+    if (!entry) return res.status(401).json({ error: "Invalid refresh token" });
 
     const bcrypt = await import("bcryptjs");
     const valid = await bcrypt.compare(rt, entry.tokenHash);
     if (!valid) return res.status(401).json({ error: "Token mismatch" });
 
-    // ROTATE TOKEN
-    user.refreshTokens.splice(idx, 1);
+    // Rotate
+    user.refreshTokens = user.refreshTokens.filter(
+      (t) => t.tokenId !== payload.tokenId
+    );
 
-    const { token: newRefreshToken, tokenId: newTokenId } = signRefreshToken({
-      sub: user._id,
-    });
-
-    const newHash = await hashToken(newRefreshToken);
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 30);
+    const { token: newRT, tokenId: newID } = signRefreshToken({ sub: user._id });
+    const newHash = await hashToken(newRT);
 
     user.refreshTokens.push({
-      tokenId: newTokenId,
+      tokenId: newID,
       tokenHash: newHash,
       device: entry.device,
       ip: req.ip,
-      expiresAt,
+      expiresAt: new Date(Date.now() + 30 * 24 * 3600 * 1000),
     });
 
     await user.save();
 
-    // FIXED COOKIE — now works on Render
-    res.cookie("refreshToken", newRefreshToken, {
+    // Set cookie
+    res.cookie("refreshToken", newRT, {
       httpOnly: true,
       secure: true,
       sameSite: "None",
@@ -163,11 +163,11 @@ router.post("/refresh", async (req, res) => {
       role: user.role,
     });
 
-    return res.json({
+    res.json({
       accessToken,
       user: user.toJSON(),
     });
-  } catch (err) {
+  } catch {
     return res.status(401).json({ error: "Invalid refresh token" });
   }
 });
@@ -188,7 +188,7 @@ router.post("/logout", async (req, res) => {
         );
         await user.save();
       }
-    } catch (_) {}
+    } catch {}
   }
 
   res.clearCookie("refreshToken", {
@@ -198,14 +198,7 @@ router.post("/logout", async (req, res) => {
     path: "/",
   });
 
-  res.clearCookie("accessToken", {
-    httpOnly: true,
-    secure: true,
-    sameSite: "None",
-    path: "/",
-  });
-
-  return res.json({ message: "Logged out" });
+  res.json({ message: "Logged out" });
 });
 
 export default router;

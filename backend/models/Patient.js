@@ -1,49 +1,56 @@
-// backend/models/Patient.js
 import mongoose from "mongoose";
 
 const patientSchema = new mongoose.Schema(
   {
-    name: { type: String, required: true },
-    email: { type: String },
-    phone: { type: String },
+    // Link to User model (the account)
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+      unique: true, // Ensure one Patient profile per User
+    },
 
-    // NEW FIELDS
+    // Patient personal information
+    name: { type: String, required: true },
+    email: { type: String, default: null },
+    phone: { type: String, default: null },
+
     gender: {
       type: String,
       enum: ["Male", "Female", "Other"],
-      required: true,
+      default: null,
     },
 
     dob: {
       type: Date,
-      required: true,
+      default: null,
     },
 
-    condition: { type: String },
+    condition: {
+      type: String,
+      default: null,
+    },
 
+    // Assigned doctor (User account)
     assignedDoctor: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       default: null,
     },
-
-    medicalNotes: [
-      {
-        doctor: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-        note: String,
-        createdAt: { type: Date, default: Date.now },
-      },
-    ],
   },
   { timestamps: true }
 );
 
-// Ensure _id -> id for frontend
+/* ---------------------------------------------------------
+   JSON Formatting
+--------------------------------------------------------- */
 patientSchema.method("toJSON", function () {
   const obj = this.toObject();
   obj.id = obj._id;
+
   delete obj._id;
   delete obj.__v;
+
   return obj;
 });
 
