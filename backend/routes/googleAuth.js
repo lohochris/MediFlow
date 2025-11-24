@@ -6,6 +6,9 @@ import { signAccessToken, signRefreshToken, hashToken } from "../utils/tokens.js
 
 const router = express.Router();
 
+const isProd = process.env.NODE_ENV === "production";
+const FRONTEND = process.env.FRONTEND_URL || process.env.FRONTEND_ORIGIN || "http://localhost:5173";
+
 // Step 1 — Start Google OAuth
 router.get(
   "/google",
@@ -37,7 +40,7 @@ router.get(
         sub: user._id,
       });
 
-      // Store refresh token securely
+      // Store refresh token securely (hashed)
       const hashed = await hashToken(refreshToken);
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + 30);
@@ -52,18 +55,21 @@ router.get(
 
       await user.save();
 
-      // 🔥 FIXED — ENABLE cross-site cookie for Google Redirect
+      // Cookie flags:
+      // - secure: true in production (HTTPS)
+      // - sameSite: "None" in production to allow cross-site cookie flow
+      // - in dev keep sameSite "Lax" and secure false for local convenience
       res.cookie("refreshToken", refreshToken, {
         httpOnly: true,
-        secure: false,       // true ONLY in production with HTTPS
-        sameSite: "None",    // <--- REQUIRED FOR GOOGLE REDIRECT
-        maxAge: 1000 * 60 * 60 * 24 * 30,
+        secure: isProd,
+        sameSite: isProd ? "None" : "Lax",
+        maxAge: 1000 * 60 * 60 * 24 * 30, // 30 days
+        path: "/",
       });
 
-      const FRONTEND = process.env.FRONTEND_ORIGIN || "http://localhost:5173";
-
-      // Pass access token to frontend so it can save it
-      const redirectUrl = `${FRONTEND}/oauth-success?token=${accessToken}`;
+      // Redirect back to frontend oauth success route — frontend reads the token query and stores it
+      // Use FRONTEND env var (set this in Render to your actual frontend URL)
+      const redirectUrl = `${FRONTEND.replace(/\/$/, "")}/oauth-success?token=${accessToken}`;
 
       return res.redirect(redirectUrl);
     } catch (err) {
