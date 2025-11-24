@@ -1,3 +1,4 @@
+// src/context/AuthContext.jsx
 import React, { createContext, useContext, useEffect, useState } from "react";
 import {
   getCurrentUser as getStoredUser,
@@ -14,28 +15,21 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   // ==========================================================
-  // INITIAL LOAD (app startup)
+  // INITIAL LOAD (on app startup)
   // ==========================================================
   useEffect(() => {
     async function init() {
       const stored = getStoredUser();
 
       if (stored?.accessToken) {
-        // Prevent screen flicker
         setUser(stored);
 
         try {
-          // Attempt silent refresh
-          const refresh = await api.post(
-            "/auth/refresh",
-            {},
-            { withCredentials: true }
-          );
-
+          // CALL CORRECT REFRESH ENDPOINT
+          const refresh = await api.post("/api/auth/refresh", {}, { withCredentials: true });
           const newToken = refresh.data?.accessToken;
 
           if (newToken) {
-            // Fetch fully fresh profile (with correct role)
             const fresh = await fetchCurrentUser();
 
             if (fresh) {
@@ -69,14 +63,15 @@ export function AuthProvider({ children }) {
   // ==========================================================
   const logout = async () => {
     try {
-      await api.post("/auth/logout", {}, { withCredentials: true });
+      // CORRECT LOGOUT ENDPOINT
+      await api.post("/api/auth/logout", {}, { withCredentials: true });
     } catch {}
     clearUser();
     setUser(null);
   };
 
   // ==========================================================
-  // RELOAD USER (used after Google OAuth redirect)
+  // FORCE RELOAD USER AFTER GOOGLE LOGIN
   // ==========================================================
   const reloadUser = async () => {
     try {
