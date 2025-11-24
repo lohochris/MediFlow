@@ -49,11 +49,11 @@ export default function AppRouter() {
             {/* PUBLIC ROUTES */}
             <Route path="/" element={<Login />} />
             <Route path="/register" element={<Register />} />
-            <Route path="/oauth-success" element={<OAuthSuccess />} />
-            <Route path="/book-appointment" element={<BookAppointment />} />
 
-            {/* ❌ REMOVED: PUBLIC EMR ACCESS */}
-            {/* <Route path="/patients/:id" element={<PatientRecord />} /> */}
+            {/* FIXED — handle query params, OAuth redirects, trailing slashes */}
+            <Route path="/oauth-success/*" element={<OAuthSuccess />} />
+
+            <Route path="/book-appointment" element={<BookAppointment />} />
 
             {/* AUTHENTICATED ROUTES */}
             <Route
@@ -101,10 +101,7 @@ export default function AppRouter() {
               }
             />
 
-            {/* ======================= */}
-            {/*       DOCTOR ROUTES     */}
-            {/* ======================= */}
-
+            {/* DOCTOR ROUTES */}
             <Route
               path="/doctor/dashboard"
               element={
@@ -141,10 +138,7 @@ export default function AppRouter() {
               }
             />
 
-            {/* ======================= */}
-            {/*       ADMIN ROUTES      */}
-            {/* ======================= */}
-
+            {/* ADMIN ROUTES */}
             <Route
               path="/admin"
               element={
