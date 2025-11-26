@@ -5,24 +5,38 @@ import Patient from "../models/Patient.js";
  * @desc Create a new patient
  * @route POST /patients
  * @access Private (Admin | Doctor)
+ *
+ * NOTE:
+ * - Manual creation (Admin/Doctor) → validate required gender & dob
+ * - Auto creation during registration → allow null gender & dob
  */
 export const createPatient = async (req, res) => {
   try {
-    const { name, email, phone, gender, dob, condition } = req.body;
+    const { name, email, phone, gender, dob, condition, isPublic } = req.body;
 
-    if (!name || !gender || !dob) {
-      return res.status(400).json({
-        error: "Name, Gender, and Date of Birth are required.",
-      });
+    // Manual creation: enforce required fields
+    if (!isPublic) {
+      if (!name) {
+        return res.status(400).json({ error: "Name is required." });
+      }
+    }
+
+    // Validate gender only when provided
+    const allowedGender = ["Male", "Female", "Other"];
+    if (gender && !allowedGender.includes(gender)) {
+      return res.status(400).json({ error: "Invalid gender value." });
     }
 
     const patient = await Patient.create({
       name,
-      email,
-      phone,
-      gender,
-      dob,
-      condition,
+      email: email ?? null,
+      phone: phone ?? null,
+      gender: gender ?? undefined, // <— IMPORTANT: Prevents enum crash
+      dob: dob ?? null,
+      condition: condition ?? null,
+      isPublic: isPublic ?? false,
+      user: req.body.user ?? null,
+      assignedDoctor: req.body.assignedDoctor ?? null,
     });
 
     res.status(201).json(patient);
@@ -33,7 +47,7 @@ export const createPatient = async (req, res) => {
 };
 
 /**
- * @desc Get all patients (Admin)
+ * @desc Get all patients (Admin/Doctor)
  * @route GET /patients
  * @access Private
  */
@@ -60,7 +74,7 @@ export const getPatients = async (req, res) => {
 };
 
 /**
- * @desc Get single patient
+ * @desc Get a single patient
  * @route GET /patients/:id
  * @access Private
  */
@@ -80,7 +94,7 @@ export const getPatient = async (req, res) => {
 };
 
 /**
- * @desc Update patient
+ * @desc Update a patient
  * @route PUT /patients/:id
  * @access Private
  */
@@ -88,14 +102,20 @@ export const updatePatient = async (req, res) => {
   try {
     const { name, email, phone, gender, dob, condition } = req.body;
 
+    // Validate gender only if provided
+    const allowedGender = ["Male", "Female", "Other"];
+    if (gender && !allowedGender.includes(gender)) {
+      return res.status(400).json({ error: "Invalid gender value." });
+    }
+
     const updatedPatient = await Patient.findByIdAndUpdate(
       req.params.id,
       {
         name,
         email,
         phone,
-        gender,
-        dob,
+        gender: gender ?? undefined, // avoid enum crash
+        dob: dob ?? null,
         condition,
       },
       { new: true, runValidators: true }
@@ -113,7 +133,7 @@ export const updatePatient = async (req, res) => {
 };
 
 /**
- * @desc Delete patient
+ * @desc Delete a patient
  * @route DELETE /patients/:id
  * @access Private
  */

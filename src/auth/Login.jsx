@@ -1,3 +1,4 @@
+// src/auth/Login.jsx
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import toast from "react-hot-toast";
@@ -8,50 +9,47 @@ import { useAuth } from "../context/AuthContext";
 
 export default function Login() {
   const navigate = useNavigate();
-  const { login } = useAuth(); // stores authenticated user globally
+  const { login } = useAuth(); // save authenticated user
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  // ==================================================
-  // EMAIL + PASSWORD LOGIN
-  // ==================================================
+  /* ============================================================
+     EMAIL + PASSWORD LOGIN
+  ============================================================ */
   const handleLogin = async (e) => {
     e.preventDefault();
 
     try {
-      const res = await loginUser(email, password);
+      // loginUser() returns the FINAL user object (already normalized)
+      const finalUser = await loginUser(email, password);
 
-      const userObj = {
-        ...res.user,
-        accessToken: res.accessToken,
-      };
+      // Save to global AuthContext
+      login(finalUser);
 
-      login(userObj);
       toast.success("Logged in successfully!");
 
-      // RBAC redirect logic
-      switch (userObj.role) {
+      // RBAC Redirects
+      switch (finalUser.role) {
         case "SuperAdmin":
         case "Admin":
-          navigate("/admin");
-          break;
+          return navigate("/admin");
 
         case "Doctor":
-          navigate("/doctor");
-          break;
+          return navigate("/doctor/dashboard");
 
         default:
-          navigate("/dashboard");
+          return navigate("/dashboard");
       }
     } catch (err) {
-      toast.error(err?.response?.data?.error || "Invalid email or password");
+      console.error("Login error:", err);
+      toast.error(err?.message || "Invalid email or password");
     }
   };
 
-  // ==================================================
-  // GOOGLE LOGIN  (FIXED FOR RENDER + LOCAL DEV)
-  // ==================================================
+  /* ============================================================
+     GOOGLE LOGIN
+  ============================================================ */
   const handleGoogle = () => {
     const backendURL = import.meta.env.VITE_BACKEND_URL;
 
@@ -63,6 +61,9 @@ export default function Login() {
     window.location.href = `${backendURL}/api/auth/google`;
   };
 
+  /* ============================================================
+     UI
+  ============================================================ */
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-100 dark:bg-slate-900 px-4">
       <div className="bg-white dark:bg-slate-800 p-8 shadow-xl rounded-2xl w-full max-w-md border border-slate-200 dark:border-slate-700">
@@ -71,9 +72,10 @@ export default function Login() {
           MediFlow Login
         </h2>
         <p className="text-sm text-slate-500 dark:text-slate-400 mb-6 text-center">
-          Welcome back! Please login.
+          Welcome back! Please login to continue.
         </p>
 
+        {/* FORM */}
         <form onSubmit={handleLogin} className="space-y-4">
           <input
             type="email"
@@ -110,6 +112,7 @@ export default function Login() {
           </button>
         </form>
 
+        {/* OR DIVIDER */}
         <div className="flex items-center my-5">
           <div className="flex-1 h-px bg-slate-300 dark:bg-slate-600"></div>
           <span className="px-3 text-slate-500 dark:text-slate-400 text-sm">

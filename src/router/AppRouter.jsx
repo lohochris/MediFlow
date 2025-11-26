@@ -1,4 +1,3 @@
-// src/router/AppRouter.jsx
 import React from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
@@ -10,14 +9,16 @@ import Login from "../auth/Login.jsx";
 import Register from "../auth/Register.jsx";
 import OAuthSuccess from "../auth/OAuthSuccess.jsx";
 
-// AUTH GUARDS
+// GUARDS
 import RequireAuth from "../auth/RequireAuth.jsx";
 import RequireAdmin from "../auth/RequireAdmin.jsx";
+import RequireDoctor from "../auth/RequireDoctor.jsx";
+import RequirePatient from "../auth/RequirePatient.jsx";
 
 // LAYOUT
 import Layout from "../layout/Layout.jsx";
 
-// MAIN PAGES (Authenticated)
+// MAIN PAGES
 import Dashboard from "../pages/Dashboard";
 import Patients from "../pages/Patients";
 import Appointments from "../pages/Appointments";
@@ -25,16 +26,20 @@ import Reports from "../pages/Reports";
 import Settings from "../pages/Settings";
 import BookAppointment from "../pages/BookAppointment";
 import NotFound from "../pages/NotFound";
-import PatientRecord from "../pages/PatientRecord"; // Admin/SuperAdmin use
+import PatientRecord from "../pages/PatientRecord";
 
-// ADMIN PAGES
+// PATIENT PROFILE
+import CompleteProfile from "../pages/CompleteProfile.jsx";
+
+// ADMIN
 import AdminDashboard from "../pages/Admin/AdminDashboard";
 import Departments from "../pages/Admin/Departments";
 import UserManagement from "../pages/Admin/UserManagement";
 import CreateDoctor from "../pages/Admin/CreateDoctor";
 import SuperAdminDashboard from "../pages/Admin/SuperAdminDashboard";
+import AddAdmin from "../pages/Admin/AddAdmin";   // ⭐ NEW IMPORT
 
-// DOCTOR PAGES
+// DOCTOR
 import DoctorDashboard from "../pages/Doctor/DoctorDashboard";
 import PatientList from "../pages/Doctor/PatientList";
 import DoctorPatientRecord from "../pages/Doctor/DoctorPatientRecord";
@@ -49,13 +54,29 @@ export default function AppRouter() {
             {/* PUBLIC ROUTES */}
             <Route path="/" element={<Login />} />
             <Route path="/register" element={<Register />} />
-
-            {/* FIXED — handle query params, OAuth redirects, trailing slashes */}
             <Route path="/oauth-success/*" element={<OAuthSuccess />} />
 
-            <Route path="/book-appointment" element={<BookAppointment />} />
+            {/* PATIENT MUST BE LOGGED IN */}
+            <Route
+              path="/book-appointment"
+              element={
+                <RequirePatient>
+                  <Layout><BookAppointment /></Layout>
+                </RequirePatient>
+              }
+            />
 
-            {/* AUTHENTICATED ROUTES */}
+            {/* COMPLETE PROFILE */}
+            <Route
+              path="/complete-profile"
+              element={
+                <RequireAuth>
+                  <CompleteProfile />
+                </RequireAuth>
+              }
+            />
+
+            {/* GENERAL DASHBOARD */}
             <Route
               path="/dashboard"
               element={
@@ -65,11 +86,21 @@ export default function AppRouter() {
               }
             />
 
+            {/* ADMIN + DOCTOR SHARED ROUTES */}
             <Route
               path="/patients"
               element={
                 <RequireAuth>
                   <Layout><Patients /></Layout>
+                </RequireAuth>
+              }
+            />
+
+            <Route
+              path="/patients/:id"
+              element={
+                <RequireAuth>
+                  <Layout><PatientRecord /></Layout>
                 </RequireAuth>
               }
             />
@@ -101,44 +132,35 @@ export default function AppRouter() {
               }
             />
 
-            {/* DOCTOR ROUTES */}
+            {/* DOCTOR ONLY */}
             <Route
               path="/doctor/dashboard"
               element={
-                <RequireAuth>
+                <RequireDoctor>
                   <Layout><DoctorDashboard /></Layout>
-                </RequireAuth>
+                </RequireDoctor>
               }
             />
 
             <Route
               path="/doctor/patients"
               element={
-                <RequireAuth>
+                <RequireDoctor>
                   <Layout><PatientList /></Layout>
-                </RequireAuth>
+                </RequireDoctor>
               }
             />
 
             <Route
               path="/doctor/patients/:id"
               element={
-                <RequireAuth>
+                <RequireDoctor>
                   <Layout><DoctorPatientRecord /></Layout>
-                </RequireAuth>
+                </RequireDoctor>
               }
             />
 
-            <Route
-              path="/doctor/appointments"
-              element={
-                <RequireAuth>
-                  <Layout><Appointments /></Layout>
-                </RequireAuth>
-              }
-            />
-
-            {/* ADMIN ROUTES */}
+            {/* ADMIN ONLY (includes SuperAdmin) */}
             <Route
               path="/admin"
               element={
@@ -175,11 +197,22 @@ export default function AppRouter() {
               }
             />
 
+            {/* SUPERADMIN DASHBOARD (Admin Guard allows SuperAdmin) */}
             <Route
               path="/admin/superadmin"
               element={
                 <RequireAdmin>
                   <Layout><SuperAdminDashboard /></Layout>
+                </RequireAdmin>
+              }
+            />
+
+            {/* ⭐ SUPERADMIN ADD ADMIN PAGE */}
+            <Route
+              path="/superadmin/add-admin"
+              element={
+                <RequireAdmin>
+                  <Layout><AddAdmin /></Layout>
                 </RequireAdmin>
               }
             />

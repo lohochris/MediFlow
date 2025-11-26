@@ -1,48 +1,32 @@
-// src/services/patientService.js
+// src/services/patientService.js 
 import api from "../api/api";
 
 /* ============================================================
-   NORMALIZER — Ensures consistent shape for React components
+   NORMALIZER — Ensures consistent patient shape
 ============================================================ */
 const normalize = (p) => {
   if (!p) return null;
+
+  const normalizeList = (list) =>
+    Array.isArray(list)
+      ? list.map((item) => ({ ...item, id: item.id || item._id }))
+      : [];
 
   return {
     ...p,
     id: p.id || p._id,
 
-    // Ensure nested arrays also have normalized IDs
-    medicalNotes: Array.isArray(p.medicalNotes)
-      ? p.medicalNotes.map((n) => ({
-          ...n,
-          id: n.id || n._id,
-        }))
-      : [],
-
-    vitals: Array.isArray(p.vitals)
-      ? p.vitals.map((v) => ({ ...v, id: v.id || v._id }))
-      : [],
-
-    diagnoses: Array.isArray(p.diagnoses)
-      ? p.diagnoses.map((d) => ({ ...d, id: d.id || d._id }))
-      : [],
-
-    prescriptions: Array.isArray(p.prescriptions)
-      ? p.prescriptions.map((rx) => ({ ...rx, id: rx.id || rx._id }))
-      : [],
-
-    labs: Array.isArray(p.labs)
-      ? p.labs.map((l) => ({ ...l, id: l.id || l._id }))
-      : [],
-
-    visits: Array.isArray(p.visits)
-      ? p.visits.map((v) => ({ ...v, id: v.id || v._id }))
-      : [],
+    medicalNotes: normalizeList(p.medicalNotes),
+    vitals: normalizeList(p.vitals),
+    diagnoses: normalizeList(p.diagnoses),
+    prescriptions: normalizeList(p.prescriptions),
+    labs: normalizeList(p.labs),
+    visits: normalizeList(p.visits),
   };
 };
 
 /* ============================================================
-   CREATE PATIENT — POST /api/patients
+   CREATE PATIENT  (Admin / Doctor / SuperAdmin)
 ============================================================ */
 export const createPatient = async (payload) => {
   try {
@@ -54,13 +38,25 @@ export const createPatient = async (payload) => {
 };
 
 /* ============================================================
-   GET ALL PATIENTS — GET /api/patients
+   PUBLIC PATIENT (Guest booking)
+============================================================ */
+export const createPublicPatient = async (payload) => {
+  try {
+    const res = await api.post("/api/patients/public", payload);
+    return normalize(res.data);
+  } catch (err) {
+    throw new Error(err.response?.data?.error || "Failed to create patient");
+  }
+};
+
+/* ============================================================
+   GET ALL PATIENTS
 ============================================================ */
 export const getPatients = async () => {
   try {
     const res = await api.get("/api/patients");
-    return Array.isArray(res.data) ? res.data.map(normalize) : [];
-  } catch (err) {
+    return res.data?.map(normalize) || [];
+  } catch {
     throw new Error("Failed to load patients");
   }
 };
@@ -68,7 +64,7 @@ export const getPatients = async () => {
 export const getAllPatients = getPatients;
 
 /* ============================================================
-   GET SINGLE PATIENT — GET /api/patients/:id
+   GET SINGLE PATIENT
 ============================================================ */
 export const getPatient = async (id) => {
   if (!id) throw new Error("Patient ID is required");
@@ -76,54 +72,53 @@ export const getPatient = async (id) => {
   try {
     const res = await api.get(`/api/patients/${id}`);
     return normalize(res.data);
-  } catch (err) {
+  } catch {
     throw new Error("Failed to load patient details");
   }
 };
 
 /* ============================================================
-   ADD NOTE — POST /api/patients/:id/notes
+   ADD NOTE
 ============================================================ */
 export const addPatientNote = async (patientId, note) => {
-  if (!patientId) throw new Error("patientId missing");
-  if (!note) throw new Error("note text missing");
+  if (!patientId) throw new Error("Patient ID required");
 
   try {
     const res = await api.post(`/api/patients/${patientId}/notes`, { note });
-    return Array.isArray(res.data) ? res.data.map(normalize) : normalize(res.data);
-  } catch (err) {
+    return normalize(res.data);
+  } catch {
     throw new Error("Failed to add note");
   }
 };
 
 /* ============================================================
-   GET DOCTOR’S ASSIGNED PATIENTS — /api/patients?assignedTo=me
+   DOCTOR — MY PATIENTS
 ============================================================ */
 export const getMyPatients = async () => {
   try {
     const res = await api.get("/api/patients?assignedTo=me");
-    return Array.isArray(res.data) ? res.data.map(normalize) : [];
-  } catch (err) {
+    return res.data?.map(normalize) || [];
+  } catch {
     throw new Error("Failed to load doctor's patients");
   }
 };
 
 /* ============================================================
-   UPDATE PATIENT — PUT /api/patients/:id
+   UPDATE ANY PATIENT BY ID (Admin / Doctor / SuperAdmin)
 ============================================================ */
 export const updatePatient = async (id, payload) => {
-  if (!id) throw new Error("Patient ID is required");
+  if (!id) throw new Error("Patient ID required");
 
   try {
     const res = await api.put(`/api/patients/${id}`, payload);
     return normalize(res.data);
   } catch (err) {
-    throw new Error("Failed to update patient");
+    throw new Error(err.response?.data?.error || "Failed to update patient");
   }
 };
 
 /* ============================================================
-   DELETE PATIENT — DELETE /api/patients/:id
+   DELETE PATIENT
 ============================================================ */
 export const deletePatient = async (id) => {
   if (!id) throw new Error("Patient ID required");
@@ -131,13 +126,13 @@ export const deletePatient = async (id) => {
   try {
     const res = await api.delete(`/api/patients/${id}`);
     return res.data;
-  } catch (err) {
+  } catch {
     throw new Error("Failed to delete patient");
   }
 };
 
 /* ============================================================
-   FILE MANAGEMENT (UPLOAD / GET / DELETE)
+   FILE MANAGEMENT
 ============================================================ */
 export const uploadPatientFile = async (id, file) => {
   if (!id) throw new Error("Patient ID required");
@@ -150,7 +145,7 @@ export const uploadPatientFile = async (id, file) => {
       headers: { "Content-Type": "multipart/form-data" },
     });
     return res.data;
-  } catch (err) {
+  } catch {
     throw new Error("File upload failed");
   }
 };
@@ -161,18 +156,32 @@ export const getPatientFiles = async (id) => {
   try {
     const res = await api.get(`/api/patients/${id}/files`);
     return res.data;
-  } catch (err) {
+  } catch {
     throw new Error("Failed to load files");
   }
 };
 
 export const deletePatientFile = async (id, fileId) => {
-  if (!id || !fileId) throw new Error("Both patient ID & file ID required");
+  if (!id || !fileId)
+    throw new Error("Both patient ID & file ID required");
 
   try {
     const res = await api.delete(`/api/patients/${id}/files/${fileId}`);
     return res.data;
-  } catch (err) {
+  } catch {
     throw new Error("Failed to delete file");
+  }
+};
+
+/* ============================================================
+   ⭐ UPDATE LOGGED-IN PATIENT PROFILE (Patient Only)
+   WORKS WITH BACKEND /api/patients/me
+============================================================ */
+export const updateMyProfile = async (payload) => {
+  try {
+    const res = await api.put("/api/patients/me", payload);
+    return normalize(res.data);
+  } catch (err) {
+    throw new Error(err.response?.data?.error || "Failed to update profile");
   }
 };

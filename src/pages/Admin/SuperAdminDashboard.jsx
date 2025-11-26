@@ -1,4 +1,3 @@
-// src/pages/Admin/SuperAdminDashboard.jsx
 import React, { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -67,6 +66,7 @@ export default function SuperAdminDashboard() {
   const [doctorPerformance, setDoctorPerformance] = useState([]);
   const [trendData, setTrendData] = useState([]);
   const [notifications, setNotifications] = useState([]);
+  const [admins, setAdmins] = useState([]);
   const [loading, setLoading] = useState(true);
 
   /* LOAD SUPERADMIN DATA */
@@ -76,12 +76,20 @@ export default function SuperAdminDashboard() {
     const load = async () => {
       setLoading(true);
       try {
-        const [kpiRes, actRes, perfRes, trendRes, notifRes] = await Promise.all([
+        const [
+          kpiRes,
+          actRes,
+          perfRes,
+          trendRes,
+          notifRes,
+          adminsRes,
+        ] = await Promise.all([
           api.get("/api/admin/kpis", { withCredentials: true }).catch(() => ({ data: {} })),
           api.get("/api/admin/activity?limit=50", { withCredentials: true }).catch(() => ({ data: [] })),
           api.get("/api/admin/doctor-performance", { withCredentials: true }).catch(() => ({ data: [] })),
           api.get("/api/admin/trends?range=30", { withCredentials: true }).catch(() => ({ data: [] })),
           api.get("/api/admin/notifications?limit=20", { withCredentials: true }).catch(() => ({ data: [] })),
+          api.get("/api/superadmin/admins", { withCredentials: true }).catch(() => ({ data: [] })),
         ]);
 
         if (!mount) return;
@@ -91,6 +99,7 @@ export default function SuperAdminDashboard() {
         setDoctorPerformance(Array.isArray(perfRes.data) ? perfRes.data : []);
         setTrendData(Array.isArray(trendRes.data) ? trendRes.data : []);
         setNotifications(Array.isArray(notifRes.data) ? notifRes.data : []);
+        setAdmins(Array.isArray(adminsRes.data) ? adminsRes.data : []);
       } catch (err) {
         console.error("SuperAdmin dashboard load error:", err);
       } finally {
@@ -120,9 +129,10 @@ export default function SuperAdminDashboard() {
   /* ---------------------- UI ---------------------- */
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900 p-6">
+
       {/* HEADER */}
       <div className="rounded-2xl overflow-hidden shadow-sm bg-gradient-to-r from-emerald-600 to-emerald-500 text-white p-6 mb-6 flex items-center gap-6">
-        
+       
         {/* LEFT SIDE */}
         <div className="flex-1">
           <h2 className="text-2xl font-bold">Hospital Overview</h2>
@@ -148,10 +158,10 @@ export default function SuperAdminDashboard() {
 
       {/* GRID CONTENT */}
       <div className="grid grid-cols-12 gap-6">
-        
+       
         {/* LEFT COLUMN */}
         <div className="col-span-12 lg:col-span-8 space-y-6">
-          
+         
           {/* TRENDS CHART */}
           <div className="bg-white dark:bg-slate-800 rounded-2xl p-4 border shadow-sm">
             <div className="flex items-center justify-between mb-2">
@@ -304,6 +314,30 @@ export default function SuperAdminDashboard() {
             </div>
           </div>
 
+          {/* ADMINS LIST */}
+          <div className="bg-white dark:bg-slate-800 rounded-2xl p-4 border shadow-sm">
+            <h3 className="text-lg font-semibold mb-3">Admins</h3>
+
+            <div className="max-h-64 overflow-y-auto space-y-2">
+              {admins.length === 0 ? (
+                <p className="text-sm text-slate-400">No admins found</p>
+              ) : (
+                admins.map((a) => (
+                  <div key={a._id} className="flex items-center justify-between border-b pb-2">
+                    <div>
+                      <p className="font-medium">{a.name}</p>
+                      <p className="text-xs text-slate-400">{a.email}</p>
+                    </div>
+
+                    <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-1 rounded-lg">
+                      Admin
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
           {/* QUICK ACTIONS */}
           <div className="bg-white dark:bg-slate-800 rounded-2xl p-4 border shadow-sm">
             <h3 className="text-sm font-semibold mb-3">Quick Actions</h3>
@@ -321,6 +355,13 @@ export default function SuperAdminDashboard() {
                 className="py-2 border rounded-lg text-sm hover:bg-slate-100 dark:hover:bg-slate-700"
               >
                 Add Doctor
+              </button>
+
+              <button
+                onClick={() => navigate("/superadmin/add-admin")}
+                className="py-2 border rounded-lg text-sm hover:bg-slate-100 dark:hover:bg-slate-700"
+              >
+                Add Admin
               </button>
 
               <button
@@ -345,9 +386,11 @@ export default function SuperAdminDashboard() {
               </button>
             </div>
           </div>
+
         </div>
 
       </div>
+
     </div>
   );
 }

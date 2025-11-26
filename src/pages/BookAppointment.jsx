@@ -4,11 +4,15 @@ import { motion } from "framer-motion";
 import toast from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
 
-import { createPatient } from "../services/patientService";
+import { createPublicPatient } from "../services/patientService";
 import { createAppointment } from "../services/appointmentService";
+import { getCurrentUser } from "../services/authService";
 
 export default function BookAppointment() {
   const navigate = useNavigate();
+
+  const user = getCurrentUser();
+  const loggedInPatientId = user?.patientId ?? null;
 
   const [form, setForm] = useState({
     name: "",
@@ -25,40 +29,45 @@ export default function BookAppointment() {
   const [appointmentInfo, setAppointmentInfo] = useState(null);
 
   /* -------------------------------------------------------------
-     SUBMIT FORM
+     SUBMIT APPOINTMENT FORM
   --------------------------------------------------------------*/
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Required fields validation
+    // Required fields
     const required = ["name", "phone", "gender", "dob", "type", "date", "time"];
-    for (const field of required) {
-      if (!form[field] || !String(form[field]).trim()) {
+    for (const key of required) {
+      if (!form[key] || String(form[key]).trim() === "") {
         toast.error("Please fill all required fields.");
         return;
       }
     }
 
     try {
-      // -----------------------------------------------------
-      // 1) CREATE PATIENT
-      // -----------------------------------------------------
-      const patient = await createPatient({
-        name: form.name.trim(),
-        phone: form.phone.trim(),
-        email: form.email?.trim() || "",
-        gender: form.gender,
-        dob: form.dob,
-      });
+      let patientId = loggedInPatientId;
 
-      const patientId = patient?._id || patient?.id;
+      // ------------------------------------------------------------
+      // PUBLIC BOOKING → Create patient in /api/patients/public
+      // ------------------------------------------------------------
       if (!patientId) {
-        throw new Error("Invalid patient ID returned from server");
+        const patient = await createPublicPatient({
+          name: form.name.trim(),
+          phone: form.phone.trim(),
+          email: form.email?.trim() || "",
+          gender: form.gender,
+          dob: form.dob,
+        });
+
+        patientId = patient?.id || patient?._id;
+
+        if (!patientId) {
+          throw new Error("Server did not return a valid patient ID.");
+        }
       }
 
-      // -----------------------------------------------------
-      // 2) CREATE APPOINTMENT
-      // -----------------------------------------------------
+      // ------------------------------------------------------------
+      // CREATE APPOINTMENT
+      // ------------------------------------------------------------
       const appt = await createAppointment({
         patientId,
         type: form.type,
@@ -68,8 +77,11 @@ export default function BookAppointment() {
 
       toast.success("Appointment booked successfully!");
 
-      // Save success state
-      setAppointmentInfo({ patient, appt });
+      setAppointmentInfo({
+        patient: { ...form },
+        appt,
+      });
+
       setSuccess(true);
 
       // Reset form
@@ -83,29 +95,30 @@ export default function BookAppointment() {
         date: "",
         time: "",
       });
-
     } catch (err) {
       console.error("BOOK APPOINTMENT ERROR:", err);
-      toast.error(err?.response?.data?.error || "Failed to book appointment");
+      toast.error(err?.response?.data?.error || "Failed to book appointment.");
     }
   };
 
   /* -------------------------------------------------------------
-     RENDER UI
+     UI
   --------------------------------------------------------------*/
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-100 dark:bg-slate-900 p-6">
-
       {success && appointmentInfo ? (
-        /* SUCCESS CARD */
+        /* -----------------------------------------------------
+           SUCCESS PAGE
+        ------------------------------------------------------*/
         <motion.div
-          initial={{ opacity: 0, scale: 0.96 }}
+          initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           className="bg-white dark:bg-slate-800 p-10 rounded-2xl max-w-lg w-full shadow-xl text-center"
         >
           <h2 className="text-2xl font-semibold text-emerald-600">
             Appointment Confirmed
           </h2>
+
           <p className="mt-2 text-slate-600 dark:text-slate-300">
             Confirmation sent via Email & SMS (simulated).
           </p>
@@ -145,7 +158,9 @@ export default function BookAppointment() {
           </div>
         </motion.div>
       ) : (
-        /* APPOINTMENT FORM */
+        /* -----------------------------------------------------
+           BOOKING FORM
+        ------------------------------------------------------*/
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
@@ -161,11 +176,8 @@ export default function BookAppointment() {
           <h1 className="text-3xl font-bold text-slate-800 dark:text-white">
             Book Appointment
           </h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
-            Fill in the details to schedule an appointment.
-          </p>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4 mt-4">
 
             {/* NAME */}
             <div>
@@ -239,7 +251,7 @@ export default function BookAppointment() {
               </select>
             </div>
 
-            {/* DATE & TIME */}
+            {/* DATE + TIME */}
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm mb-1">Date *</label>

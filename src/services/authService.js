@@ -1,171 +1,152 @@
 // src/services/authService.js
-
-/**
- * Auth service — client-side helpers for login / logout / refresh token handling
- * - Uses the central `api` axios instance (../api/api)
- * - Unified user object stored under "mediflow-user"
- */
-
 import api from "../api/api";
 
-const USER_KEY = "mediflow-user";
+/* =====================================================================
+   LOCAL STORAGE
+===================================================================== */
+const STORAGE_KEY = "mediflow_user";
 
-/* -------------------------
-   Local storage helpers
-   ------------------------- */
-export function saveUser(user) {
+export const saveUser = (user) => {
   if (!user) return;
-  try {
-    localStorage.setItem(USER_KEY, JSON.stringify(user));
-  } catch (e) {
-    console.warn("saveUser failed:", e);
-  }
-}
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
+};
 
-export function clearUser() {
+export const getCurrentUser = () => {
   try {
-    localStorage.removeItem(USER_KEY);
-  } catch (e) {
-    console.warn("clearUser failed:", e);
-  }
-}
-
-export function getCurrentUser() {
-  try {
-    const raw = localStorage.getItem(USER_KEY);
+    const raw = localStorage.getItem(STORAGE_KEY);
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
   }
-}
-
-/* -------------------------
-   Helper: format server error
-   ------------------------- */
-const formatError = (err) => {
-  if (!err) return new Error("Unknown error");
-  if (err.response?.data?.error) return new Error(err.response.data.error);
-  if (err.response?.data?.message) return new Error(err.response.data.message);
-  if (err.message) return new Error(err.message);
-  return new Error("Request failed");
 };
 
-/* -------------------------
-   LOGIN - email + password
-   ------------------------- */
-export async function loginUser(email, password) {
-  if (!email || !password) throw new Error("Email and password are required");
+export const clearUser = () => {
+  localStorage.removeItem(STORAGE_KEY);
+};
 
+/* =====================================================================
+   ⭐ GOOGLE LOGIN — required by OAuthSuccess.jsx
+===================================================================== */
+export const saveGoogleLogin = (token, userObj) => {
+  if (!token || !userObj) return;
+
+  // attach access token
+  userObj.accessToken = token;
+
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(userObj));
+};
+
+/* =====================================================================
+   NORMALIZE USER — single consistent structure
+===================================================================== */
+const normalizeUser = (backendUser, accessToken = null) => {
+  if (!backendUser) return null;
+
+  return {
+    ...backendUser,
+    accessToken,
+
+    patientId:
+      backendUser.patientId ??
+      backendUser.patientProfile?._id ??
+      null,
+
+    patientProfile: backendUser.patientProfile ?? null,
+
+    name: backendUser.name ?? "User",
+  };
+};
+
+/* =====================================================================
+   LOGIN
+===================================================================== */
+export const loginUser = async (email, password) => {
   try {
     const res = await api.post("/api/auth/login", { email, password });
-    const fetchedUser = res.data?.user || null;
-    const accessToken = res.data?.accessToken || null;
 
-    if (!fetchedUser) {
-      throw new Error("Login response missing user");
-    }
+    const backendUser = res.data?.user;
+    const token = res.data?.accessToken;
 
-    const fullUser = { ...fetchedUser, accessToken };
-    saveUser(fullUser);
+    const final = normalizeUser(backendUser, token);
+    saveUser(final);
 
-    return fullUser;
+    return final;
   } catch (err) {
-    throw formatError(err);
+    throw new Error(err.response?.data?.error || "Login failed");
   }
-}
+};
 
-/* -------------------------
-   REGISTER
-   ------------------------- */
-export async function registerUser(name, email, password) {
-  if (!name || !email || !password)
-    throw new Error("Name, email and password are required");
-
+/* =====================================================================
+   REGISTER (matches backend /api/auth/register)
+===================================================================== */
+export const registerUser = async ({ name, email, password }) => {
   try {
     const res = await api.post("/api/auth/register", {
       name,
       email,
       password,
     });
-    return res.data;
-  } catch (err) {
-    throw formatError(err);
-  }
-}
 
-/* -------------------------
-   LOGOUT
-   ------------------------- */
-export async function logoutUser() {
-  try {
-    await api.post("/api/auth/logout");
+    const backendUser = res.data?.user;
+    const token = res.data?.accessToken;
+
+    const final = normalizeUser(backendUser, token);
+    saveUser(final);
+
+    return final;
   } catch (err) {
-    console.warn("logoutUser: server logout failed", err?.message || err);
-  } finally {
+    throw new Error(err.response?.data?.error || "Registration failed");
+  }
+};
+
+/* =====================================================================
+   FETCH CURRENT USER 
+   ✔ Uses /api/auth/me (NOT /api/users/me)
+   ⭐ CORRECTION: Clear session on failure to stop "jwt expired" loops
+===================================================================== */
+export const fetchCurrentUser = async () => {
+  try {
+    const res = await api.get("/api/auth/me");
+    return res.data || null;
+  } catch (err) {
+    // If /api/auth/me fails, it means the token in the header is bad (expired/invalid).
+    // The interceptor may have already tried refreshing. 
+    // Clear the user to prevent the AuthContext from retrying with the bad token.
+    console.warn("fetchCurrentUser failed (token invalid/expired). Clearing local session.");
     clearUser();
-  }
-}
-
-/* -------------------------
-   FETCH CURRENT USER
-   ------------------------- */
-export async function fetchCurrentUser() {
-  try {
-    const res = await api.get("/api/users/me");
-    const profile = res.data;
-
-    const stored = getCurrentUser();
-    const merged = {
-      ...profile,
-      accessToken: stored?.accessToken || null,
-    };
-
-    saveUser(merged);
-    return merged;
-  } catch (err) {
-    console.warn("fetchCurrentUser failed:", err?.message || err);
     return null;
   }
-}
+};
 
-/* -------------------------
-   SAVE REFRESHED TOKEN
-   ------------------------- */
-export function saveRefreshedUser(newAccessToken) {
-  if (!newAccessToken) return;
+/* =====================================================================
+   REFRESH TOKEN — rotates refresh token automatically
+===================================================================== */
+export const refreshToken = async () => {
+  try {
+    const res = await api.post(
+      "/api/auth/refresh",
+      {},
+      { withCredentials: true }
+    );
 
-  const existing = getCurrentUser();
-  if (!existing) return;
+    const backendUser = res.data?.user;
+    const token = res.data?.accessToken;
 
-  const merged = {
-    ...existing,
-    accessToken: newAccessToken,
-  };
+    return normalizeUser(backendUser, token);
+  } catch {
+    return null;
+  }
+};
 
-  saveUser(merged);
-}
+/* =====================================================================
+   LOGOUT
+===================================================================== */
+export const logoutUser = async () => {
+  try {
+    await api.post("/api/auth/logout", {}, { withCredentials: true });
+  } catch {
+    // not critical
+  }
 
-/* -------------------------
-   GOOGLE LOGIN
-   ------------------------- */
-export function saveGoogleLogin(accessToken, user) {
-  if (!accessToken || !user) return null;
-
-  const merged = { ...user, accessToken };
-  saveUser(merged);
-
-  return merged;
-}
-
-export function loginWithGoogle() {
-  // Redirect to backend Google OAuth entrypoint
-  window.location.href = "/api/auth/google";
-}
-
-/* -------------------------
-   AUTH CHECK
-   ------------------------- */
-export function isAuthenticated() {
-  const u = getCurrentUser();
-  return !!(u && u.accessToken);
-}
+  clearUser();
+};

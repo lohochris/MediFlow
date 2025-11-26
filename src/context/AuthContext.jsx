@@ -1,113 +1,155 @@
 // src/context/AuthContext.jsx
-import React, { createContext, useContext, useEffect, useState } from "react";
+
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
+
 import {
-  getCurrentUser as getStoredUser,
-  saveUser,
-  clearUser,
-  fetchCurrentUser,
+  getCurrentUser as loadStoredUser,
+  saveUser,
+  clearUser,
+  fetchCurrentUser,  // ✓ uses /api/auth/me
 } from "../services/authService";
+
 import api from "../api/api";
 
 const AuthContext = createContext();
 
-export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+/* ============================================================
+   AUTH PROVIDER COMPONENT
+============================================================ */
+export function AuthProvider({ children }) { 
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  // ==========================================================
-  // INITIAL LOAD (on app startup)
-  // ==========================================================
-  useEffect(() => {
-    async function init() {
-      const stored = getStoredUser();
+  /* ============================================================
+    NORMALIZE USER
+  ============================================================ */
+  const normalizeUser = (backendUser, accessToken) => {
+    if (!backendUser) return null;
 
-      if (stored?.accessToken) {
-        setUser(stored);
+    return {
+      ...backendUser,
+      accessToken,
+      patientId:
+        backendUser.patientId ??
+        backendUser.patientProfile?._id ??
+        null,
+      // patientProfile now includes the critical isProfileComplete status
+      patientProfile: backendUser.patientProfile ?? null,
+      name: backendUser.name ?? "User",
+    };
+  };
 
-        try {
-          // CALL CORRECT REFRESH ENDPOINT
-          const refresh = await api.post("/api/auth/refresh", {}, { withCredentials: true });
-          const newToken = refresh.data?.accessToken;
+  /* ============================================================
+    INITIAL SESSION SYNC
+  ============================================================ */
+  useEffect(() => {
+    async function init() {
+      const stored = loadStoredUser();
 
-          if (newToken) {
-            const fresh = await fetchCurrentUser();
+      if (stored) {
+        setUser(stored); 
+        
+        try {
+          const latest = await fetchCurrentUser(); 
 
-            if (fresh) {
-              const final = { ...fresh, accessToken: newToken };
-              saveUser(final);
-              setUser(final);
-            }
-          }
-        } catch (err) {
-          clearUser();
-          setUser(null);
-        }
-      }
+          if (latest) {
+            const finalUser = normalizeUser(latest, stored.accessToken); 
+            saveUser(finalUser);
+            setUser(finalUser);
+          } else {
+            throw new Error("Initial sync failed.");
+          }
+        } catch (err) {
+          console.error("🔻 Initial session sync failed — clearing session:", err);
+          clearUser();
+          setUser(null);
+        }
+      }
 
-      setLoading(false);
-    }
+      setLoading(false);
+    }
 
-    init();
-  }, []);
+    init();
+  }, []);
 
-  // ==========================================================
-  // LOGIN
-  // ==========================================================
-  const login = (userObj) => {
-    saveUser(userObj);
-    setUser(userObj);
-  };
+  /* ============================================================
+    LOGIN
+  ============================================================ */
+  const login = (finalUser) => {
+    saveUser(finalUser);
+    setUser(finalUser);
+  };
 
-  // ==========================================================
-  // LOGOUT
-  // ==========================================================
-  const logout = async () => {
-    try {
-      // CORRECT LOGOUT ENDPOINT
-      await api.post("/api/auth/logout", {}, { withCredentials: true });
-    } catch {}
-    clearUser();
-    setUser(null);
-  };
+  /* ============================================================
+    LOGOUT
+  ============================================================ */
+  const logout = async () => {
+    try {
+      await api.post("/api/auth/logout", {}, { withCredentials: true });
+    } catch (err) {
+      console.warn("Logout warning:", err);
+    }
 
-  // ==========================================================
-  // FORCE RELOAD USER AFTER GOOGLE LOGIN
-  // ==========================================================
-  const reloadUser = async () => {
-    try {
-      const fresh = await fetchCurrentUser();
-      if (!fresh) return null;
+    clearUser();
+    setUser(null);
+  };
 
-      const stored = getStoredUser();
-      const token = stored?.accessToken;
+  /* ============================================================
+    RELOAD USER — (Guarantees profile update synchronization)
+    ⭐ We will use this function in the CompleteProfile component.
+  ============================================================ */
+  const reloadUser = async () => {
+    try {
+      const backendUser = await fetchCurrentUser();
+      if (!backendUser) return null;
 
-      const finalUser = { ...fresh, accessToken: token };
+      const stored = loadStoredUser();
+      const token = stored?.accessToken;
 
-      saveUser(finalUser);
-      setUser(finalUser);
+      const final = normalizeUser(backendUser, token);
+      
+      saveUser(final); 
 
-      return finalUser;
-    } catch {
-      return null;
-    }
-  };
+      // Use functional update for reliable state synchronization
+      setUser(prevUser => {
+        return final;
+      });
+      
+      return final;
+    } catch (err) {
+      console.error("reloadUser error:", err);
+      return null;
+    }
+  };
 
-  return (
-    <AuthContext.Provider
-      value={{
-        user,
-        setUser,
-        login,
-        logout,
-        reloadUser,
-        loading,
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
-  );
+  return (
+    <AuthContext.Provider
+      value={{
+        user,
+        // ⭐ EXPOSE reloadUser for profile update synchronization
+        reloadUser, 
+        login,
+        logout,
+        loading,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
-export function useAuth() {
-  return useContext(AuthContext);
+/* ============================================================
+   USE AUTH HOOK
+============================================================ */
+export function useAuth() { 
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
 }

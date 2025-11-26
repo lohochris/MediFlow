@@ -1,5 +1,6 @@
+// src/pages/Admin/UserManagement.jsx
 import React, { useEffect, useState } from "react";
-import api from "../../api/api";  // ✅ unified axios instance
+import api from "../../api/api"; // unified axios instance
 import toast from "react-hot-toast";
 import { UserCog, Trash2, UserPlus, X } from "lucide-react";
 
@@ -30,7 +31,7 @@ export default function UserManagement() {
   ];
 
   /* ============================================================
-     Load Users + Departments
+       Load Users + Departments
   ============================================================ */
   const loadData = async () => {
     try {
@@ -56,7 +57,7 @@ export default function UserManagement() {
   }, []);
 
   /* ============================================================
-     Doctor Form Handling
+       Doctor Form Handling
   ============================================================ */
   const handleDoctorInput = (e) => {
     const { name, value } = e.target;
@@ -64,7 +65,7 @@ export default function UserManagement() {
   };
 
   /* ============================================================
-     Submit Doctor
+       Submit Doctor
   ============================================================ */
   const submitDoctor = async () => {
     const { name, email, password, department } = doctorForm;
@@ -105,7 +106,7 @@ export default function UserManagement() {
   };
 
   /* ============================================================
-     Update Role
+       Update Role
   ============================================================ */
   const handleRoleChange = async (id, role) => {
     try {
@@ -117,13 +118,13 @@ export default function UserManagement() {
 
       toast.success("Role updated");
       loadData();
-    } catch {
-      toast.error("Failed to update role");
+    } catch (err) {
+      toast.error(err.response?.data?.error || "Failed to update role");
     }
   };
 
   /* ============================================================
-     Update Department
+       Update Department
   ============================================================ */
   const handleDeptChange = async (id, department) => {
     try {
@@ -135,13 +136,13 @@ export default function UserManagement() {
 
       toast.success("Department updated");
       loadData();
-    } catch {
-      toast.error("Failed to update department");
+    } catch (err) {
+      toast.error(err.response?.data?.error || "Failed to update department");
     }
   };
 
   /* ============================================================
-     Toggle Active Status
+       Toggle Active Status
   ============================================================ */
   const toggleActive = async (id, active) => {
     try {
@@ -153,13 +154,13 @@ export default function UserManagement() {
 
       toast.success(active ? "User activated" : "User deactivated");
       loadData();
-    } catch {
+    } catch (err) {
       toast.error("Failed to update status");
     }
   };
 
   /* ============================================================
-     Delete User (Soft Delete)
+       Delete User (Soft Delete)
   ============================================================ */
   const handleDelete = async (id) => {
     if (!confirm("Soft delete this user?")) return;
@@ -169,13 +170,13 @@ export default function UserManagement() {
 
       toast.success("User deleted");
       loadData();
-    } catch {
+    } catch (err) {
       toast.error("Delete failed");
     }
   };
 
   /* ============================================================
-                         UI
+                          UI
   ============================================================ */
   return (
     <div className="p-6">
@@ -203,7 +204,9 @@ export default function UserManagement() {
 
       {/* TABLE */}
       {loading ? (
-        <div className="text-center py-10 text-slate-500">Loading users...</div>
+        <div className="text-center py-10 text-slate-500">
+          Loading users...
+        </div>
       ) : (
         <div className="overflow-x-auto bg-white dark:bg-slate-900 border rounded-xl shadow-card">
           <table className="w-full text-sm">
@@ -265,9 +268,7 @@ export default function UserManagement() {
                     <input
                       type="checkbox"
                       checked={u.isActive}
-                      onChange={(e) =>
-                        toggleActive(u._id, e.target.checked)
-                      }
+                      onChange={(e) => toggleActive(u._id, e.target.checked)}
                     />
                   </td>
 
@@ -298,9 +299,7 @@ export default function UserManagement() {
               <X size={20} />
             </button>
 
-            <h2 className="text-xl font-semibold mb-4">
-              Create Doctor Account
-            </h2>
+            <h2 className="text-xl font-semibold mb-4">Create Doctor Account</h2>
 
             <div className="space-y-4">
               <input

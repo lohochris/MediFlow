@@ -19,16 +19,18 @@ export default function Appointments() {
   const [editAppt, setEditAppt] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  /* ---------------------------
-      LOAD APPOINTMENTS
-  ------------------------------ */
+  /* ============================================================
+     LOAD APPOINTMENTS
+  ============================================================ */
   const loadData = async () => {
     try {
       setLoading(true);
+
       const data = await getAllAppointments();
       setAppointments(Array.isArray(data) ? data : []);
+
     } catch (err) {
-      console.error(err);
+      console.error("LOAD ERROR:", err);
       toast.error("Failed to load appointments");
     } finally {
       setLoading(false);
@@ -39,31 +41,36 @@ export default function Appointments() {
     loadData();
   }, []);
 
-  /* ---------------------------
-      SEARCH FILTER
-  ------------------------------ */
+  /* ============================================================
+     SEARCH FILTER
+  ============================================================ */
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return appointments;
 
     return appointments.filter((a) => {
-      const patientName = a.patient?.name?.toLowerCase() || "";
+      const name = a?.patient?.name?.toLowerCase() || "";
+      const type = a?.type?.toLowerCase() || "";
+      const date = a?.date?.toLowerCase() || "";
+      const time = a?.time?.toLowerCase() || "";
+
       return (
-        patientName.includes(q) ||
-        (a.type || "").toLowerCase().includes(q) ||
-        (a.date || "").toLowerCase().includes(q) ||
-        (a.time || "").toLowerCase().includes(q)
+        name.includes(q) ||
+        type.includes(q) ||
+        date.includes(q) ||
+        time.includes(q)
       );
     });
   }, [appointments, query]);
 
-  /* ---------------------------
-      STATUS BADGE
-  ------------------------------ */
+  /* ============================================================
+     STATUS
+  ============================================================ */
   const getStatus = (date, time) => {
     if (!date || !time) return "Upcoming";
-    const apptDateTime = new Date(`${date}T${time}`);
-    return apptDateTime < new Date() ? "Completed" : "Upcoming";
+
+    const dt = new Date(`${date}T${time}`);
+    return dt < new Date() ? "Completed" : "Upcoming";
   };
 
   const statusStyles = {
@@ -72,16 +79,16 @@ export default function Appointments() {
   };
 
   const typeColors = {
-    Checkup: "bg-blue-100 text-blue-700",
     Consultation: "bg-amber-100 text-amber-700",
+    Checkup: "bg-blue-100 text-blue-700",
     Dental: "bg-teal-100 text-teal-700",
     Emergency: "bg-red-100 text-red-700",
     Surgery: "bg-purple-100 text-purple-700",
   };
 
-  /* ---------------------------
-      CREATE / UPDATE
-  ------------------------------ */
+  /* ============================================================
+     CREATE / UPDATE
+  ============================================================ */
   const handleSave = async (form) => {
     try {
       const payload = {
@@ -97,7 +104,7 @@ export default function Appointments() {
       };
 
       if (!payload.patientId) {
-        toast.error("Patient is required");
+        toast.error("Patient is required.");
         return;
       }
 
@@ -112,15 +119,16 @@ export default function Appointments() {
       setModalOpen(false);
       setEditAppt(null);
       loadData();
+
     } catch (err) {
       console.error("SAVE ERROR:", err);
-      toast.error(err?.response?.data?.error || "Error saving appointment");
+      toast.error(err?.response?.data?.error || "Failed to save appointment");
     }
   };
 
-  /* ---------------------------
-      DELETE
-  ------------------------------ */
+  /* ============================================================
+     DELETE APPOINTMENT
+  ============================================================ */
   const handleDelete = async (id) => {
     if (!confirm("Delete this appointment?")) return;
 
@@ -129,25 +137,27 @@ export default function Appointments() {
       toast.success("Appointment deleted");
       loadData();
     } catch (err) {
-      toast.error("Failed to delete");
+      console.error("DELETE ERROR:", err);
+      toast.error("Failed to delete appointment");
     }
   };
 
-  /* ---------------------------
-      EDIT MODAL
-  ------------------------------ */
+  /* ============================================================
+     EDIT MODAL
+  ============================================================ */
   const openEdit = (appt) => {
     setEditAppt(appt);
     setModalOpen(true);
   };
 
-  /* -----------------------------------------------
-      UNIQUE PATIENT LIST FOR APPOINTMENT MODAL
-     ----------------------------------------------- */
+  /* ============================================================
+     UNIQUE PATIENT LIST FOR MODAL
+     Extracts real patient objects from appointments
+  ============================================================ */
   const uniquePatients = [
     ...new Map(
       appointments
-        .filter((a) => a.patient && (a.patient._id || a.patient.id))
+        .filter((a) => a?.patient && (a.patient._id || a.patient.id))
         .map((a) => {
           const p = a.patient;
           return [p._id || p.id, p];
@@ -155,9 +165,9 @@ export default function Appointments() {
     ).values(),
   ];
 
-  /* ---------------------------
-      UI RENDER
-  ------------------------------ */
+  /* ============================================================
+     UI RENDER
+  ============================================================ */
 
   return (
     <div className="p-6">
@@ -230,6 +240,7 @@ export default function Appointments() {
                       <td className="px-4 py-3">
                         {a.patient?.name || "Unknown"}
                       </td>
+
                       <td className="px-4 py-3">{a.date}</td>
                       <td className="px-4 py-3">{a.time}</td>
 

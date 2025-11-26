@@ -247,8 +247,7 @@ JWT_REFRESH_SECRET=your_refresh_secret
 FRONTEND_ORIGIN=http://localhost:5173
 GOOGLE_CLIENT_ID=your_google_client_id
 GOOGLE_CLIENT_SECRET=your_google_client_secret
-GOOGLE_CALLBACK_URL=http://localhost:5000/auth/google/callback
-
+GOOGLE_CALLBACK_URL=http://localhost:50001/auth/google/cal
 Seed SuperAdmin (important)
 npm run seed:admin
 

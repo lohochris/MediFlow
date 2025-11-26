@@ -1,14 +1,16 @@
 // src/auth/OAuthSuccess.jsx
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { saveGoogleLogin } from "../services/authService";
 import toast from "react-hot-toast";
+import { saveGoogleLogin } from "../services/authService";
+import { useAuth } from "../context/AuthContext";
 
 export default function OAuthSuccess() {
   const navigate = useNavigate();
+  const { reloadUser } = useAuth();
 
   useEffect(() => {
-    async function finalize() {
+    async function finalizeGoogleLogin() {
       try {
         const params = new URLSearchParams(window.location.search);
         const token = params.get("token");
@@ -18,33 +20,47 @@ export default function OAuthSuccess() {
           return navigate("/");
         }
 
-        // Decode JWT payload
-        const payload = JSON.parse(atob(token.split(".")[1]));
+        // --- Decode JWT payload ---
+        let payload;
+        try {
+          const base64 = token.split(".")[1];
+          payload = JSON.parse(atob(base64));
+        } catch {
+          toast.error("Invalid Google login token");
+          return navigate("/");
+        }
 
+        // Construct user object for temporary local storage
         const userObj = {
           _id: payload.sub,
           role: payload.role,
-          // Optional fields if included in backend JWT
           email: payload.email,
           name: payload.name,
         };
 
-        // Save login session (your existing system)
+        // Save token + user → LocalStorage (same as email/password login)
         saveGoogleLogin(token, userObj);
 
-        // Redirect based on role
-        switch (userObj.role) {
+        // Reload full user data from backend (patientId, profile, etc.)
+        const finalUser = await reloadUser();
+
+        if (!finalUser) {
+          toast.error("Failed to load your account.");
+          return navigate("/");
+        }
+
+        // ---- Role-based redirects ----
+        switch (finalUser.role) {
           case "Admin":
           case "SuperAdmin":
             return navigate("/admin");
 
           case "Doctor":
-            return navigate("/doctor");
+            return navigate("/doctor/dashboard");
 
           default:
             return navigate("/dashboard");
         }
-
       } catch (err) {
         console.error("OAuthSuccess error:", err);
         toast.error("Google login error.");
@@ -52,8 +68,8 @@ export default function OAuthSuccess() {
       }
     }
 
-    finalize();
-  }, []);
+    finalizeGoogleLogin();
+  }, [navigate, reloadUser]);
 
   return (
     <div className="min-h-screen flex items-center justify-center text-lg">

@@ -17,7 +17,9 @@ export default function AppointmentModal({
     type: "",
   });
 
-  // Load initial form
+  /* ============================================================
+     LOAD INITIAL VALUES
+  ============================================================ */
   useEffect(() => {
     if (!open) return;
 
@@ -35,10 +37,18 @@ export default function AppointmentModal({
         type: editData.type || "",
       });
     } else {
-      setForm({ patient: "", date: "", time: "", type: "" });
+      setForm({
+        patient: "",
+        date: "",
+        time: "",
+        type: "",
+      });
     }
   }, [open, editData]);
 
+  /* ============================================================
+     SUBMIT
+  ============================================================ */
   const handleSubmit = (e) => {
     e.preventDefault();
 
@@ -47,15 +57,26 @@ export default function AppointmentModal({
       return;
     }
 
-    // Backend expects: patientId, date, time, type
+    // Ensure normalized id
+    const patientId = form.patient;
+
+    if (!patientId || String(patientId).trim() === "") {
+      toast.error("Invalid patient selected.");
+      return;
+    }
+
+    // Clean payload
     onSave({
-      patientId: form.patient,
+      patientId,
       date: form.date,
       time: form.time,
       type: form.type,
     });
   };
 
+  /* ============================================================
+     UI
+  ============================================================ */
   return (
     <AnimatePresence>
       {open && (
@@ -72,32 +93,38 @@ export default function AppointmentModal({
             </h3>
 
             <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Patient */}
+              {/* PATIENT SELECT */}
               <div>
-                <label className="text-sm text-slate-600 dark:text-slate-300">
+                <label className="block text-sm text-slate-600 dark:text-slate-300 mb-1">
                   Patient
                 </label>
+
                 <select
                   value={form.patient}
                   onChange={(e) =>
                     setForm({ ...form, patient: e.target.value })
                   }
                   className="w-full border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2"
+                  required
                 >
                   <option value="">Select patient</option>
-                  {patients.map((p) => (
-                    <option key={p.id || p._id} value={p.id || p._id}>
-                      {p.name}
-                    </option>
-                  ))}
+
+                  {patients.length === 0 ? (
+                    <option disabled>No patients available</option>
+                  ) : (
+                    patients.map((p) => (
+                      <option key={p._id || p.id} value={p._id || p.id}>
+                        {p.name}
+                      </option>
+                    ))
+                  )}
                 </select>
               </div>
 
-              {/* Date & Time */}
+              {/* DATE & TIME */}
               <div className="grid grid-cols-2 gap-4">
-                {/* Date */}
                 <div>
-                  <label className="text-sm text-slate-600 dark:text-slate-300">
+                  <label className="block text-sm text-slate-600 dark:text-slate-300 mb-1">
                     Date
                   </label>
                   <input
@@ -107,12 +134,12 @@ export default function AppointmentModal({
                       setForm({ ...form, date: e.target.value })
                     }
                     className="w-full border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2"
+                    required
                   />
                 </div>
 
-                {/* Time */}
                 <div>
-                  <label className="text-sm text-slate-600 dark:text-slate-300">
+                  <label className="block text-sm text-slate-600 dark:text-slate-300 mb-1">
                     Time
                   </label>
                   <input
@@ -122,32 +149,35 @@ export default function AppointmentModal({
                       setForm({ ...form, time: e.target.value })
                     }
                     className="w-full border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2"
+                    required
                   />
                 </div>
               </div>
 
-              {/* Type */}
+              {/* TYPE */}
               <div>
-                <label className="text-sm text-slate-600 dark:text-slate-300">
+                <label className="block text-sm text-slate-600 dark:text-slate-300 mb-1">
                   Appointment Type
                 </label>
+
                 <select
                   value={form.type}
                   onChange={(e) =>
                     setForm({ ...form, type: e.target.value })
                   }
                   className="w-full border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2"
+                  required
                 >
                   <option value="">Select type</option>
-                  <option value="Checkup">Checkup</option>
                   <option value="Consultation">Consultation</option>
+                  <option value="Checkup">Checkup</option>
                   <option value="Dental">Dental</option>
                   <option value="Emergency">Emergency</option>
                   <option value="Surgery">Surgery</option>
                 </select>
               </div>
 
-              {/* Footer */}
+              {/* FOOTER */}
               <div className="flex justify-end gap-3 pt-3">
                 <button
                   type="button"

@@ -1,6 +1,7 @@
 // backend/routes/users.js
 import express from "express";
 import User from "../models/User.js";
+import Patient from "../models/Patient.js";
 import Department from "../models/Department.js";
 import { requireAuth } from "../middleware/auth.js";
 import { withActivity } from "../middleware/withActivity.js";
@@ -14,33 +15,35 @@ const isAdminOrSuper = (user) =>
   user.role === "Admin" || user.role === "SuperAdmin";
 
 /* ---------------------------------------------------------
-   1. GET CURRENT USER
+   ⭐ IMPORTANT NOTE
+   /api/auth/me NOW handles:
+     - returning the logged-in user
+     - attaching patientProfile
+   So this file NO LONGER exposes /users/me 
+   (Prevents conflict + 404 errors)
 --------------------------------------------------------- */
-router.get("/me", requireAuth, async (req, res) => {
-  res.json(req.user);
-});
 
 /* ---------------------------------------------------------
-   2. GET ALL USERS (Admin + SuperAdmin)
+   1. GET ALL USERS (Admin + SuperAdmin)
 --------------------------------------------------------- */
 router.get("/", requireAuth, async (req, res) => {
-  if (!isAdminOrSuper(req.user))
+  if (!isAdminOrSuper(req.user)) {
     return res.status(403).json({ error: "Forbidden" });
+  }
 
   const users = await User.find().select("-passwordHash -refreshTokens");
   res.json(users);
 });
 
 /* ---------------------------------------------------------
-   3. CREATE NEW USER (Doctor / Staff Creation)
-   (Admin + SuperAdmin)
+   2. CREATE NEW USER (Admin / SuperAdmin)
 --------------------------------------------------------- */
-
 const createUserHandler = async (req, res) => {
   const actor = req.user;
 
-  if (!isAdminOrSuper(actor))
+  if (!isAdminOrSuper(actor)) {
     return res.status(403).json({ error: "Forbidden" });
+  }
 
   const { name, email, password, phone, role, department } = req.body;
 
@@ -50,7 +53,7 @@ const createUserHandler = async (req, res) => {
     });
   }
 
-  // Admin CANNOT create SuperAdmin
+  // Admin cannot create SuperAdmin
   if (actor.role === "Admin" && role === "SuperAdmin") {
     return res
       .status(403)
@@ -59,16 +62,18 @@ const createUserHandler = async (req, res) => {
 
   // Check email uniqueness
   const exists = await User.findOne({ email });
-  if (exists) return res.status(409).json({ error: "Email already exists" });
-
-  // Validate department if supplied
-  if (department) {
-    const deptExists = await Department.findOne({ name: department });
-    if (!deptExists)
-      return res.status(400).json({ error: "Invalid department" });
+  if (exists) {
+    return res.status(409).json({ error: "Email already exists" });
   }
 
-  // Hash password if provided (google accounts may omit)
+  // Validate department
+  if (department) {
+    const deptExists = await Department.findOne({ name: department });
+    if (!deptExists) {
+      return res.status(400).json({ error: "Invalid department" });
+    }
+  }
+
   let passwordHash = undefined;
   if (password) {
     passwordHash = await User.hashPassword(password);
@@ -84,7 +89,7 @@ const createUserHandler = async (req, res) => {
   });
 
   res.status(201).json(user);
-  return user; // for logging + notifications
+  return user;
 };
 
 router.post(
@@ -92,20 +97,19 @@ router.post(
   requireAuth,
   withActivity({
     action: "Created New User",
-    getTarget: (req, res, user) =>
-      `User: ${user?.name} (${user?.role})`,
+    getTarget: (_, __, user) => `User: ${user?.name} (${user?.role})`,
     notify: true,
-    notification: (req, res, user) => ({
+    notification: (req, __, user) => ({
       title: "New Staff Account Created",
-      message: `${req.user?.name} created account for ${user?.name} (${user?.role})`,
-      data: { id: user?._id, role: user?.role },
+      message: `${req.user?.name} created ${user?.name} (${user?.role})`,
+      data: { id: user?._id },
       targetRoles: ["Admin", "SuperAdmin"],
     }),
   })(createUserHandler)
 );
 
 /* ---------------------------------------------------------
-   4. UPDATE USER ROLE
+   3. UPDATE USER ROLE
 --------------------------------------------------------- */
 const updateRoleHandler = async (req, res) => {
   const actor = req.user;
@@ -116,9 +120,9 @@ const updateRoleHandler = async (req, res) => {
 
   // Admin cannot modify SuperAdmin
   if (actor.role === "Admin" && target.role === "SuperAdmin") {
-    return res
-      .status(403)
-      .json({ error: "Admins cannot modify SuperAdmin accounts" });
+    return res.status(403).json({
+      error: "Admins cannot modify SuperAdmin accounts",
+    });
   }
 
   target.role = req.body.role;
@@ -133,20 +137,19 @@ router.put(
   requireAuth,
   withActivity({
     action: "Updated User Role",
-    getTarget: (req, res, user) =>
-      `User: ${user?.name} → ${user?.role}`,
+    getTarget: (_, __, user) => `User: ${user?.name} → ${user?.role}`,
     notify: true,
-    notification: (req, res, user) => ({
+    notification: (req, __, user) => ({
       title: "User Role Updated",
       message: `${req.user?.name} changed ${user?.name}'s role to ${user?.role}`,
-      data: { id: user?._id, role: user?.role },
+      data: { id: user?._id },
       targetRoles: ["Admin", "SuperAdmin"],
     }),
   })(updateRoleHandler)
 );
 
 /* ---------------------------------------------------------
-   5. UPDATE USER DEPARTMENT
+   4. UPDATE USER DEPARTMENT
 --------------------------------------------------------- */
 const updateDepartmentHandler = async (req, res) => {
   const actor = req.user;
@@ -157,17 +160,18 @@ const updateDepartmentHandler = async (req, res) => {
 
   // Admin cannot modify SuperAdmin
   if (actor.role === "Admin" && target.role === "SuperAdmin") {
-    return res
-      .status(403)
-      .json({ error: "Admins cannot modify SuperAdmin accounts" });
+    return res.status(403).json({
+      error: "Admins cannot modify SuperAdmin accounts",
+    });
   }
 
-  // Validate department
   const deptExists = await Department.findOne({
     name: req.body.department,
   });
-  if (!deptExists)
+
+  if (!deptExists) {
     return res.status(400).json({ error: "Invalid department" });
+  }
 
   target.department = req.body.department;
   await target.save();
@@ -181,10 +185,9 @@ router.put(
   requireAuth,
   withActivity({
     action: "Updated User Department",
-    getTarget: (req, res, user) =>
-      `User: ${user?.name} → Dept: ${user?.department}`,
+    getTarget: (_, __, user) => `User: ${user?.name} → Dept: ${user?.department}`,
     notify: true,
-    notification: (req, res, user) => ({
+    notification: (req, __, user) => ({
       title: "User Department Updated",
       message: `${req.user?.name} assigned ${user?.name} to ${user?.department}`,
       data: { id: user?._id },
@@ -194,7 +197,7 @@ router.put(
 );
 
 /* ---------------------------------------------------------
-   6. UPDATE USER STATUS (ACTIVE/INACTIVE)
+   5. UPDATE USER STATUS
 --------------------------------------------------------- */
 const updateStatusHandler = async (req, res) => {
   const actor = req.user;
@@ -203,6 +206,7 @@ const updateStatusHandler = async (req, res) => {
   if (!target) return res.status(404).json({ error: "User not found" });
   if (!isAdminOrSuper(actor)) return res.status(403).json({ error: "Forbidden" });
 
+  // Admin cannot modify SuperAdmin
   if (actor.role === "Admin" && target.role === "SuperAdmin") {
     return res.status(403).json({
       error: "Admins cannot modify SuperAdmin accounts",
@@ -221,10 +225,10 @@ router.put(
   requireAuth,
   withActivity({
     action: "Updated User Status",
-    getTarget: (req, res, user) =>
+    getTarget: (_, __, user) =>
       `User: ${user?.name} → ${user?.isActive ? "Active" : "Inactive"}`,
     notify: true,
-    notification: (req, res, user) => ({
+    notification: (req, __, user) => ({
       title: "User Status Updated",
       message: `${req.user?.name} changed ${user?.name}'s status to ${user?.isActive ? "Active" : "Inactive"}`,
       data: { id: user?._id },
@@ -234,27 +238,26 @@ router.put(
 );
 
 /* ---------------------------------------------------------
-   7. DELETE USER
+   6. DELETE USER (Soft Delete)
 --------------------------------------------------------- */
 const deleteUserHandler = async (req, res) => {
   const actor = req.user;
-  const targetId = req.params.id;
-  const target = await User.findById(targetId);
+  const target = await User.findById(req.params.id);
 
   if (!target) return res.status(404).json({ error: "User not found" });
-
   if (!isAdminOrSuper(actor))
     return res.status(403).json({ error: "Forbidden" });
 
+  // Admin cannot delete SuperAdmin
   if (actor.role === "Admin" && target.role === "SuperAdmin") {
     return res.status(403).json({
       error: "Admin cannot delete SuperAdmin",
     });
   }
 
-  // Soft delete
   target.deletedAt = new Date();
   target.deletedBy = actor._id;
+
   await target.save();
 
   res.json({ message: "Soft deleted" });
@@ -266,9 +269,9 @@ router.delete(
   requireAuth,
   withActivity({
     action: "Deleted User",
-    getTarget: (req, res, user) => `User: ${user?.name}`,
+    getTarget: (_, __, user) => `User: ${user?.name}`,
     notify: true,
-    notification: (req, res, user) => ({
+    notification: (req, __, user) => ({
       title: "User Deleted",
       message: `${req.user?.name} deleted ${user?.name}`,
       data: { id: user?._id },
